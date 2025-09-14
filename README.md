@@ -1,4 +1,4 @@
-# Wormhole Generator
+# 3D Wormhole Generator
 
 Interactive Site: https://codepen.io/pierremaw/pen/vENqzER
 
@@ -51,4 +51,5 @@ Most parameters are adjustable at runtime via the GUI (press the lil-gui toggle 
 | Spin                | Global rotation speed                |  0 to 1 |       0.3 |
 
 ---
+
 
