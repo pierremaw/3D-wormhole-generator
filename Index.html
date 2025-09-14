@@ -1,0 +1,818 @@
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Wormhole Generator</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { overflow: hidden; background: #000; font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Arial', sans-serif; }
+      #portal-container { position: fixed; inset: 0; }
+      .dg.ac { z-index: 1000 !important; }
+  
+      /* Subtle starry vignette */
+      body::before{
+        content:"";
+        position:fixed; inset:0; pointer-events:none; z-index:1;
+        background:
+          radial-gradient(80vw 80vh at 80% 10%, rgba(52,152,219,0.15), transparent 60%),
+          radial-gradient(80vw 80vh at 10% 90%, rgba(155,89,182,0.15), transparent 60%),
+          radial-gradient(120vw 120vh at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.6));
+        mix-blend-mode: screen;
+      }
+  
+      /* Loading overlay with conic spinner */
+      #loading-overlay {
+        position: fixed; inset: 0;
+        background: radial-gradient(120vw 120vh at 50% 50%, #0a0015, #000);
+        display: grid; place-items: center;
+        z-index: 9999; transition: opacity 0.8s ease-out;
+      }
+      .loader {
+        width: 140px; height: 140px; border-radius: 50%;
+        background:
+          conic-gradient(from 0turn, #9b59b6, #3498db, #9b59b6) border-box;
+        -webkit-mask:
+          radial-gradient(farthest-side, #0000 55%, #000 56%) content-box,
+          linear-gradient(#000 0 0) padding-box;
+        -webkit-mask-composite: destination-out;
+                mask-composite: exclude;
+        padding: 10px;
+        animation: spin 1.1s linear infinite;
+        box-shadow: 0 0 30px rgba(155, 89, 182, 0.35), inset 0 0 30px rgba(52, 152, 219, 0.25);
+      }
+      @keyframes spin { to { transform: rotate(1turn); } }
+  
+      #info-panel {
+        position: fixed; bottom: 20px; left: 20px;
+        color: rgba(255, 255, 255, 0.85); font-size: 13px; line-height: 1.35;
+        pointer-events: none; text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        z-index: 100; opacity: 0; transition: opacity 0.8s ease-in;
+      }
+  
+      #control-panel {
+        position: fixed; top: 20px; right: 20px; z-index: 100;
+        display: flex; flex-direction: column; gap: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 14px; border-radius: 16px;
+        border: 1px solid rgba(155, 89, 182, 0.3);
+        backdrop-filter: blur(14px);
+      }
+      .control-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+      .control-btn {
+        background: rgba(155, 89, 182, 0.18);
+        border: 1px solid rgba(155, 89, 182, 0.4);
+        color: white; width: 50px; height: 50px; border-radius: 25px;
+        cursor: pointer; display: grid; place-items: center;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        position: relative; overflow: hidden;
+      }
+      .control-btn:hover {
+        background: rgba(155, 89, 182, 0.35);
+        border-color: rgba(255, 255, 255, 0.7);
+        transform: translateY(-1px) scale(1.05);
+        box-shadow: 0 0 18px rgba(155, 89, 182, 0.55);
+      }
+      .control-btn:active { transform: scale(0.95); }
+      .control-btn svg { width: 22px; height: 22px; z-index: 2; }
+  
+      #portal-btn {
+        width: 100%; height: 58px; border-radius: 12px;
+        background: linear-gradient(45deg, rgba(155, 89, 182, 0.35), rgba(52, 152, 219, 0.35));
+        border-color: rgba(155, 89, 182, 0.6);
+      }
+      #portal-btn:hover {
+        background: linear-gradient(45deg, rgba(155, 89, 182, 0.55), rgba(52, 152, 219, 0.55));
+        box-shadow: 0 0 24px rgba(155, 89, 182, 0.65);
+      }
+  
+      .btn-ripple {
+        position: absolute; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        transform: scale(0); animation: ripple 0.55s linear;
+        pointer-events: none;
+      }
+      @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+  
+      #portal-indicator {
+        position: fixed; top: 20px; left: 20px; z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid rgba(155, 89, 182, 0.5);
+        border-radius: 12px; padding: 14px; backdrop-filter: blur(10px);
+        color: rgba(255, 255, 255, 0.92); min-width: 220px;
+        opacity: 0; transition: all 0.28s ease;
+      }
+      #portal-indicator.active {
+        opacity: 1; border-color: rgba(52, 152, 219, 0.85);
+        box-shadow: 0 0 20px rgba(52, 152, 219, 0.28);
+      }
+      .portal-bar {
+        width: 100%; height: 8px; background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px; margin-top: 8px; overflow: hidden;
+      }
+      .portal-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #9b59b6, #3498db);
+        border-radius: 4px; transition: width 0.25s ease;
+        box-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.166.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.0/examples/jsm/"
+      }
+    }
+    </script>
+  </head>
+  
+  <div id="loading-overlay" aria-hidden="true">
+    <div class="loader" role="progressbar" aria-label="Loading scene"></div>
+  </div>
+  
+  <div id="portal-container" aria-live="off"></div>
+  
+  <div id="info-panel">
+    <p><strong>Wormhole Generator</strong></p>
+    <p>Mouse: Navigate | Double-click: Fullscreen</p>
+    <p>Keys: <code>Space</code> activate • <code>R</code> reset • <code>X</code> change • <code>P</code> perf</p>
+  </div>
+  
+  <div id="portal-indicator" aria-live="polite">
+    <div>Wormhole Stability</div>
+    <div id="portal-status">Stabilizing</div>
+    <div class="portal-bar">
+      <div class="portal-fill" id="portal-fill" style="width: 100%"></div>
+    </div>
+  </div>
+  
+  <div id="control-panel" role="toolbar" aria-label="Portal controls">
+    <button class="control-btn" id="portal-btn" title="Activate Wormhole" aria-label="Activate Wormhole">
+      <!-- target icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 1v6m0 6v6M21 12l-6-3 6-3M3 12l6 3-6 3M21 12l-6 3 6 3M3 12l6-3-6-3"/>
+      </svg>
+    </button>
+    <div class="control-row">
+      <button class="control-btn" id="reset-view" title="Reset Camera" aria-label="Reset Camera">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+      </button>
+  
+      <button class="control-btn" id="randomize" title="Change Dimensions" aria-label="Change Dimensions">
+        <!-- shuffle/orbit icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M12 3a6.364 6.364 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          <path d="m7 14 3-3 3 3"/>
+          <path d="M2.5 17a24.12 24.12 0 0 0 2 2 24.12 24.12 0 0 0 2-2"/>
+          <path d="M22 12c0 6-4 6-6 0V9a4.5 4.5 0 0 0-4.5-4.5c-1.5 0-2.5 1.5-2.5 1.5s1-1.5 2.5-1.5A4.5 4.5 0 0 1 18 9v3Z"/>
+        </svg>
+      </button>
+  
+      <button class="control-btn" id="toggle-perf" title="Toggle Performance Mode" aria-label="Toggle Performance Mode">
+        <!-- lightning -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6z"/>
+        </svg>
+      </button>
+  
+      <button class="control-btn" id="capture" title="Save Screenshot" aria-label="Save Screenshot">
+        <!-- camera -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  
+  <script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  
+  let portalEnergy = 100;
+  let portalCooldown = false;
+  
+  function createRipple(button, x, y) {
+    const rect = button.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.classList.add('btn-ripple');
+    ripple.style.left = `${(x ?? (rect.left + rect.width/2)) - rect.left}px`;
+    ripple.style.top  = `${(y ?? (rect.top + rect.height/2)) - rect.top}px`;
+    ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+    button.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  }
+  
+  class WormholeGenerator {
+    constructor() {
+      this.params = {
+        portalComplexity: 4,
+        crystalCount: 12,
+        primaryColor: '#9b59b6',
+        secondaryColor: '#3498db',
+        accentColor: '#e74c3c',
+        vortexColor: '#2ecc71',
+        rotationSpeed: 0.3,
+        bloomEnabled: true,
+        bloomStrength: 1.2,
+        bloomRadius: 0.7,
+        bloomThreshold: 0.2,
+        portalIntensity: 1.0,
+        dimensionShift: 0
+      };
+  
+      this.lowPower = false;
+      this.meshes = [];
+      this.materials = [];
+      this.portalMaterials = [];
+      this.time = 0;
+  
+      this.init();
+      this.createPortalScene();
+      this.setupGUI();
+      this.setupEventListeners();
+      this.animate();
+  
+      // Hide loader and show UI
+      setTimeout(() => {
+        const overlay = document.getElementById('loading-overlay');
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          document.getElementById('info-panel').style.opacity = '1';
+          document.getElementById('portal-indicator').style.opacity = '1';
+        }, 280);
+      }, 80);
+  
+      // Respect prefers-reduced-motion
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        this.controls.autoRotate = false;
+        this.params.bloomStrength = Math.min(this.params.bloomStrength, 0.6);
+        this.bloomPass.strength = this.params.bloomStrength;
+      }
+    }
+  
+    init() {
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x070012);
+      this.scene.fog = new THREE.FogExp2(0x110022, 0.0012);
+  
+      this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1200);
+      this.camera.position.set(0, 0, 15);
+      this.initialCameraPosition = this.camera.position.clone();
+  
+      this.scene.add(new THREE.AmbientLight(0x330066, 0.22));
+      const mainLight = new THREE.DirectionalLight(0xffffff, 0.65);
+      mainLight.position.set(10, 10, 5);
+      this.scene.add(mainLight);
+  
+      this.portalLights = [];
+      const lightColors = [this.params.primaryColor, this.params.secondaryColor, this.params.accentColor, this.params.vortexColor];
+      for (let i = 0; i < 6; i++) {
+        const light = new THREE.PointLight(new THREE.Color(lightColors[i % 4]), 0.8, 20);
+        this.scene.add(light);
+        this.portalLights.push(light);
+      }
+  
+      // preserveDrawingBuffer enables screenshots
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.18;
+      document.getElementById('portal-container').appendChild(this.renderer.domElement);
+  
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.08;
+      this.controls.autoRotate = true;
+         this.controls.autoRotateSpeed = 0.5;
+      this.controls.minDistance = 8;
+      this.controls.maxDistance = 40;
+  
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+  
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        this.params.bloomStrength, this.params.bloomRadius, this.params.bloomThreshold
+      );
+      this.bloomPass.enabled = this.params.bloomEnabled;
+      this.composer.addPass(this.bloomPass);
+  
+      this.fxaaPass = new ShaderPass(FXAAShader);
+      const pixelRatio = this.renderer.getPixelRatio();
+      this.fxaaPass.material.uniforms['resolution'].value.set(
+        1 / (window.innerWidth * pixelRatio), 1 / (window.innerHeight * pixelRatio)
+      );
+      this.composer.addPass(this.fxaaPass);
+  
+      this.clock = new THREE.Clock();
+    }
+  
+    createPortalScene() {
+      this.meshes.forEach(m => this.scene.remove(m));
+      this.materials.forEach(mat => mat?.dispose());
+      this.meshes = [];
+      this.materials = [];
+      this.portalMaterials = [];
+  
+      this.createCosmicBackground();
+      this.createPortalCore();
+      this.createVortexRings();
+      this.createFloatingCrystals();
+      this.createDimensionalStreams();
+      this.createPortalFrame();
+      this.createEnergyParticles();
+      this.createSpaceDistortion();
+    }
+  
+    activatePortal() {
+      if (portalCooldown || portalEnergy < 25) return;
+      portalCooldown = true;
+      portalEnergy = Math.max(0, portalEnergy - 25);
+      this.updatePortalUI();
+  
+      this.portalMaterials.forEach(mat => {
+        if (mat.uniforms && mat.uniforms.pulseTime) {
+          mat.uniforms.pulseTime.value = this.time;
+        }
+      });
+      setTimeout(() => { portalCooldown = false; }, 900);
+    }
+  
+    addPortalShader(material) {
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.time = { value: 0 };
+        shader.uniforms.pulseTime = { value: -1000 };
+        shader.uniforms.portalSpeed = { value: 8.0 };
+        shader.uniforms.portalColor = { value: new THREE.Color(this.params.accentColor) };
+        shader.uniforms.dimensionShift = { value: 0 };
+  
+        shader.vertexShader = `varying vec3 vWorldPosition;\n` + shader.vertexShader;
+        shader.fragmentShader = `
+          uniform float time;
+          uniform float pulseTime;
+          uniform float portalSpeed;
+          uniform vec3 portalColor;
+          uniform float dimensionShift;
+          varying vec3 vWorldPosition;\n` + shader.fragmentShader;
+  
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `
+          #include <begin_vertex>
+          vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          `
+        );
+  
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+          float timeSincePortal = time - pulseTime;
+          if(timeSincePortal > 0.0 && timeSincePortal < 3.0) {
+              float portalRadius = timeSincePortal * portalSpeed;
+              float currentRadius = length(vWorldPosition);
+              float portalWidth = 1.5;
+              float portalEffect = smoothstep(portalRadius - portalWidth, portalRadius, currentRadius) -
+                                   smoothstep(portalRadius, portalRadius + portalWidth, currentRadius);
+              vec3 dimensionalColor = mix(portalColor, vec3(1.0, 0.5, 1.0), sin(dimensionShift * 3.14159) * 0.5 + 0.5);
+              totalEmissiveRadiance += dimensionalColor * portalEffect * 4.0;
+          }`
+        );
+        this.portalMaterials.push(shader);
+      };
+    }
+  
+    createCosmicBackground() {
+      const count = 4200;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+        const radius = 80 + Math.random() * 50;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i3 + 2] = radius * Math.cos(phi);
+  
+        const c = new THREE.Color().setHSL(Math.random(), 0.6 + Math.random()*0.3, 0.6 + Math.random()*0.3);
+        c.toArray(colors, i3);
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const mat = new THREE.PointsMaterial({
+        size: 0.28, vertexColors: true, sizeAttenuation: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, transparent: true
+      });
+      const stars = new THREE.Points(geo, mat);
+      this.scene.add(stars);
+      this.meshes.push(stars);
+      this.materials.push(mat);
+    }
+  
+    createPortalCore() {
+      const geo = new THREE.SphereGeometry(0.8, 32, 32);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          pulseTime: { value: -1000 },
+          dimensionShift: { value: 0 },
+          color1: { value: new THREE.Color(this.params.primaryColor) },
+          color2: { value: new THREE.Color(this.params.secondaryColor) },
+          color3: { value: new THREE.Color(this.params.accentColor) }
+        },
+        vertexShader: `
+          uniform float time;
+          uniform float dimensionShift;
+          varying vec3 vPos;
+          varying vec3 vNorm;
+          void main() {
+            vPos = position;
+            vNorm = normal;
+            float warp = sin(position.x * 10.0 + time * 3.0) * 0.1;
+            float shift = sin(dimensionShift * 6.28318) * 0.3;
+            vec3 p = position * (1.0 + warp + shift);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform float pulseTime;
+          uniform float dimensionShift;
+          uniform vec3 color1;
+          uniform vec3 color2;
+          uniform vec3 color3;
+          varying vec3 vPos;
+          varying vec3 vNorm;
+          void main() {
+            float noise = sin(vPos.x * 20.0 + time * 4.0) * cos(vPos.z * 15.0 + time * 3.0);
+            vec3 baseColor = mix(color1, color2, 0.5 + 0.5 * sin(time * 2.0 + dimensionShift));
+            vec3 finalColor = mix(baseColor, color3, noise * 0.3);
+            float fresnel = pow(1.0 - abs(dot(vNorm, normalize(cameraPosition - vPos))), 3.0);
+            finalColor = mix(finalColor, vec3(1.0), fresnel * 0.5);
+            float timeSincePortal = time - pulseTime;
+            if(timeSincePortal > 0.0 && timeSincePortal < 1.0) {
+                float burst = 1.0 - timeSincePortal;
+                finalColor += vec3(1.0) * burst * 3.0;
+            }
+            gl_FragColor = vec4(finalColor, 0.9);
+          }
+        `,
+        transparent: true
+      });
+      this.portalMaterials.push(mat);
+      const mesh = new THREE.Mesh(geo, mat);
+      this.scene.add(mesh);
+      this.meshes.push(mesh);
+    }
+  
+    createVortexRings() {
+      const rings = 3 + Math.floor(this.params.portalComplexity);
+      for (let ring = 0; ring < rings; ring++) {
+        const radius = 2 + ring * 0.85;
+        const geo = new THREE.TorusGeometry(radius, 0.055, 16, 64);
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(this.getRingColor(ring)),
+          transparent: true, opacity: 0.7, metalness: 0.85, roughness: 0.22,
+          clearcoat: 0.85, clearcoatRoughness: 0.1,
+          emissive: new THREE.Color(this.getRingColor(ring)).multiplyScalar(0.22)
+        });
+        this.addPortalShader(mat);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = Math.PI * 0.1 * ring;
+        mesh.rotation.z = Math.PI * 0.15 * ring;
+        this.scene.add(mesh);
+        this.meshes.push(mesh);
+      }
+    }
+  
+    createFloatingCrystals() {
+      const crystalCount = this.params.crystalCount;
+      for (let i = 0; i < crystalCount; i++) {
+        const geo = new THREE.OctahedronGeometry(0.3 + Math.random() * 0.4, 1);
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(this.getCrystalColor(i)),
+          transparent: true, opacity: 0.82, metalness: 0.9, roughness: 0.1,
+          clearcoat: 1.0, clearcoatRoughness: 0.0,
+          emissive: new THREE.Color(this.getCrystalColor(i)).multiplyScalar(0.32)
+        });
+        this.addPortalShader(mat);
+        const mesh = new THREE.Mesh(geo, mat);
+        const angle = (i / Math.max(1, crystalCount)) * Math.PI * 2;
+        const radius = 6 + Math.random() * 4;
+        mesh.position.set(
+          Math.cos(angle) * radius,
+          (Math.random() - 0.5) * 8,
+          Math.sin(angle) * radius
+        );
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        this.scene.add(mesh);
+        this.meshes.push(mesh);
+      }
+    }
+  
+    createDimensionalStreams() {
+      const streamCount = 4 + Math.floor(this.params.portalComplexity);
+      for (let i = 0; i < streamCount; i++) {
+        const points = [];
+        const segments = 120;
+        for (let j = 0; j <= segments; j++) {
+          const t = j / segments;
+          const angle = t * Math.PI * 12 + i * Math.PI * 0.25;
+          const radius = 3 + Math.sin(t * Math.PI * 6) * 1.5;
+          const height = (t - 0.5) * 15;
+          points.push(new THREE.Vector3(
+            Math.cos(angle) * radius,
+            height,
+            Math.sin(angle) * radius
+          ));
+        }
+        const curve = new THREE.CatmullRomCurve3(points);
+        const geo = new THREE.TubeGeometry(curve, segments, 0.02, 8, false);
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(this.getStreamColor(i)),
+          transparent: true, opacity: 0.6, metalness: 1.0, roughness: 0.0,
+          emissive: new THREE.Color(this.getStreamColor(i)).multiplyScalar(0.4)
+        });
+        this.addPortalShader(mat);
+        const stream = new THREE.Mesh(geo, mat);
+        this.scene.add(stream);
+        this.meshes.push(stream);
+      }
+    }
+  
+    createPortalFrame() {
+      const frameGeo = new THREE.TorusGeometry(7, 0.2, 16, 64);
+      const frameMat = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(this.params.primaryColor),
+        transparent: true, opacity: 0.42, metalness: 1.0, roughness: 0.1,
+        clearcoat: 1.0, clearcoatRoughness: 0.0,
+        emissive: new THREE.Color(this.params.primaryColor).multiplyScalar(0.5)
+      });
+      this.addPortalShader(frameMat);
+      const frame = new THREE.Mesh(frameGeo, frameMat);
+      this.scene.add(frame);
+      this.meshes.push(frame);
+    }
+  
+    createEnergyParticles() {
+      const count = 1500;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const r = 2 + Math.random() * 8;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+        positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i*3+2] = r * Math.cos(phi);
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.PointsMaterial({
+        size: 0.08, color: this.params.vortexColor,
+        blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8
+      });
+      const particles = new THREE.Points(geo, mat);
+      this.scene.add(particles);
+      this.meshes.push(particles);
+      this.materials.push(mat);
+    }
+  
+    createSpaceDistortion() {
+      const geo = new THREE.SphereGeometry(12, 64, 64);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          dimensionShift: { value: 0 },
+          color1: { value: new THREE.Color(this.params.primaryColor) },
+          color2: { value: new THREE.Color(this.params.vortexColor) }
+        },
+        vertexShader: `
+          uniform float time;
+          uniform float dimensionShift;
+          varying vec3 vNorm;
+          varying vec3 vPos;
+          void main() {
+            vNorm = normal;
+            vPos = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform float dimensionShift;
+          uniform vec3 color1;
+          uniform vec3 color2;
+          varying vec3 vNorm;
+          varying vec3 vPos;
+          void main() {
+            vec3 viewDir = normalize(cameraPosition - vPos);
+            float fresnel = pow(1.0 - abs(dot(vNorm, viewDir)), 4.0);
+            float distortion = sin(vPos.x * 0.5 + time * 2.0) * cos(vPos.y * 0.7 + time * 1.5);
+            vec3 color = mix(color1, color2, distortion * 0.5 + 0.5 + dimensionShift * 0.3);
+            gl_FragColor = vec4(color, fresnel * 0.3);
+          }
+        `,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const distortion = new THREE.Mesh(geo, mat);
+      this.scene.add(distortion);
+      this.meshes.push(distortion);
+      this.materials.push(mat);
+    }
+  
+    getRingColor(ring) {
+      const colors = [this.params.primaryColor, this.params.secondaryColor, this.params.accentColor, this.params.vortexColor];
+      return colors[ring % colors.length];
+    }
+    getCrystalColor(index) {
+      const colors = [this.params.accentColor, this.params.vortexColor, this.params.primaryColor, this.params.secondaryColor];
+      return colors[index % colors.length];
+    }
+    getStreamColor(index) {
+      const colors = [this.params.vortexColor, this.params.primaryColor, this.params.secondaryColor];
+      return colors[index % colors.length];
+    }
+  
+    updatePortalUI() {
+      const indicator = document.getElementById('portal-indicator');
+      const status = document.getElementById('portal-status');
+      const fill = document.getElementById('portal-fill');
+      if (!indicator || !status || !fill) return;
+  
+      fill.style.width = portalEnergy + '%';
+      // subtle hue shift with energy
+      const hue = 200 - (portalEnergy * 1.2);
+      fill.style.background = `linear-gradient(90deg, hsl(${Math.max(0,hue)},70%,60%), #3498db)`;
+  
+      if (portalEnergy > 80) { status.textContent = 'Stable'; indicator.className = 'active'; }
+      else if (portalEnergy > 50) { status.textContent = 'Fluctuating'; indicator.className = 'active'; }
+      else if (portalEnergy > 25) { status.textContent = 'Unstable'; indicator.className = 'active'; }
+      else { status.textContent = 'Collapsed'; indicator.className = ''; }
+    }
+  
+    setupEventListeners() {
+      const clickRipple = (e, fn) => { createRipple(e.currentTarget, e.clientX, e.clientY); fn(); };
+  
+      document.getElementById('portal-btn').addEventListener('click', (e) => clickRipple(e, () => this.activatePortal()));
+      document.getElementById('reset-view').addEventListener('click', (e) => clickRipple(e, () => {
+        this.controls.reset(); this.camera.position.copy(this.initialCameraPosition);
+      }));
+      document.getElementById('randomize').addEventListener('click', (e) => clickRipple(e, () => this.changeDimensions()));
+      document.getElementById('toggle-perf').addEventListener('click', (e) => clickRipple(e, () => this.togglePerformanceMode()));
+      document.getElementById('capture').addEventListener('click', (e) => clickRipple(e, () => this.takeScreenshot()));
+  
+      window.addEventListener('resize', () => this.onResize());
+      window.addEventListener('dblclick', () => {
+        if (!document.fullscreenElement) { document.documentElement.requestFullscreen?.(); }
+        else { document.exitFullscreen?.(); }
+      });
+  
+      // Keyboard shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') { e.preventDefault(); this.activatePortal(); }
+        if (e.key.toLowerCase() === 'r') { this.controls.reset(); this.camera.position.copy(this.initialCameraPosition); }
+        if (e.key.toLowerCase() === 'x') { this.changeDimensions(); }
+        if (e.key.toLowerCase() === 'p') { this.togglePerformanceMode(); }
+        if (e.key.toLowerCase() === 'f') {
+          if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+          else document.exitFullscreen?.();
+        }
+      }, { passive: false });
+    }
+  
+    changeDimensions() {
+      const colors = ['#9b59b6', '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#e67e22', '#1abc9c', '#34495e', '#8e44ad', '#16a085'];
+      this.params.primaryColor = colors[Math.floor(Math.random() * colors.length)];
+      this.params.secondaryColor = colors[Math.floor(Math.random() * colors.length)];
+      this.params.accentColor = colors[Math.floor(Math.random() * colors.length)];
+      this.params.vortexColor = colors[Math.floor(Math.random() * colors.length)];
+      this.params.dimensionShift = Math.random();
+      this.createPortalScene();
+    }
+  
+    setupGUI() {
+      const gui = new GUI();
+      gui.add(this.params, 'portalComplexity', 1, 8, 1).name('Complexity').onChange(() => this.createPortalScene());
+      gui.add(this.params, 'crystalCount', 6, 24, 1).name('Crystals').onChange(() => this.createPortalScene());
+      gui.addColor(this.params, 'accentColor').name('Wormhole Energy Hue').onChange(c => {
+        this.portalMaterials.forEach(m => { if (m.uniforms?.portalColor) m.uniforms.portalColor.value.set(c); });
+      });
+      gui.add(this.params, 'bloomEnabled').name('Bloom On').onChange(v => this.bloomPass.enabled = v);
+      gui.add(this.params, 'bloomStrength', 0, 3, 0.1).name('Bloom Strength').onChange(v => this.bloomPass.strength = v);
+      gui.add(this.params, 'rotationSpeed', 0, 1, 0.1).name('Spin');
+      gui.close();
+    }
+  
+    togglePerformanceMode() {
+      this.lowPower = !this.lowPower;
+      if (this.lowPower) {
+        this.bloomPass.enabled = false;
+        this.controls.autoRotateSpeed = 0.3;
+        this.renderer.setPixelRatio(1);
+      } else {
+        this.bloomPass.enabled = this.params.bloomEnabled;
+        this.controls.autoRotateSpeed = 0.5;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      }
+      this.onResize();
+    }
+  
+    takeScreenshot() {
+      // ensure the latest frame is drawn
+      this.composer.render();
+      const dataURL = this.renderer.domElement.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = `wormhole-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  
+    animate() {
+      requestAnimationFrame(() => this.animate());
+      const delta = this.clock.getDelta();
+      this.time = this.clock.getElapsedTime();
+  
+      if (portalEnergy < 100) {
+        portalEnergy = Math.min(100, portalEnergy + delta * 8);
+        this.updatePortalUI();
+      }
+  
+      this.portalMaterials.forEach(shader => {
+        if (shader.uniforms) {
+          if (shader.uniforms.time) shader.uniforms.time.value = this.time;
+          if (shader.uniforms.dimensionShift) shader.uniforms.dimensionShift.value = this.params.dimensionShift;
+        }
+      });
+      this.materials.forEach(mat => {
+        if (mat.uniforms) {
+          if (mat.uniforms.time) mat.uniforms.time.value = this.time;
+          if (mat.uniforms.dimensionShift) mat.uniforms.dimensionShift.value = this.params.dimensionShift;
+        }
+      });
+  
+      this.portalLights.forEach((light, i) => {
+        const angle = this.time * 0.3 + (i / 6) * Math.PI * 2;
+        const radius = 10 + Math.sin(this.time * 0.5 + i) * 3;
+        light.position.x = Math.cos(angle) * radius;
+        light.position.z = Math.sin(angle) * radius;
+        light.position.y = Math.sin(this.time * 0.4 + i * 0.7) * 5;
+      });
+  
+      this.meshes.forEach((mesh, i) => {
+        if (!mesh.rotation) return;
+        const speed = this.params.rotationSpeed;
+        mesh.rotation.y += delta * speed * (i % 2 ? -1 : 1) * 0.3;
+        mesh.rotation.x += delta * speed * 0.1;
+  
+        if (mesh.material && mesh.material.type === 'PointsMaterial') {
+          const positions = mesh.geometry.attributes.position.array;
+          for (let j = 0; j < positions.length; j += 3) {
+            positions[j]   += Math.sin(this.time + j) * 0.001;
+            positions[j+1] += Math.cos(this.time + j) * 0.001;
+            positions[j+2] += Math.sin(this.time * 0.7 + j) * 0.001;
+          }
+          mesh.geometry.attributes.position.needsUpdate = true;
+        }
+      });
+  
+      this.controls.update();
+      this.composer.render();
+    }
+  
+    onResize() {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.composer.setSize(window.innerWidth, window.innerHeight);
+      const pixelRatio = this.renderer.getPixelRatio();
+      this.fxaaPass.material.uniforms['resolution'].value.set(
+        1 / (window.innerWidth * pixelRatio), 1 / (window.innerHeight * pixelRatio)
+      );
+    }
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => new WormholeGenerator());
+  } else {
+    new WormholeGenerator();
+  }
+  </script>
+  
