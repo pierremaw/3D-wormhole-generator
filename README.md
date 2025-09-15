@@ -4,7 +4,7 @@ Interactive Site: https://codepen.io/pierremaw/pen/vENqzER
 
 A real-time, GPU-driven portal visualisation built with three.js. Activate a shimmering wormhole, explore vortex rings and dimensional streams, and capture high-resolution screenshots. Designed for simplicity, performance, and a bit of sci-fi delight. Vibe coded with GPT-5.
 
-https://github.com/user-attachments/assets/71653f8e-079e-4665-98b0-82a011966d45
+https://github.com/user-attachments/assets/0524dc40-ae06-436e-b641-7d1d40c2adc7
 
 ---
 
@@ -51,6 +51,7 @@ Most parameters are adjustable at runtime via the GUI (press the lil-gui toggle 
 | Spin                | Global rotation speed                |  0 to 1 |       0.3 |
 
 ---
+
 
 
 
