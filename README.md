@@ -4,8 +4,7 @@ A real-time, GPU-driven wormhole you can *poke*, *spin*, and *photograph*. It re
 
 Live demo: https://codepen.io/pierremaw/pen/vENqzER
 
-Preview video/GIF:
-https://github.com/user-attachments/assets/0524dc40-ae06-436e-b641-7d1d40c2adc7
+https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ## What it does
 
@@ -60,3 +59,4 @@ Click the camera button (or wire your own hotkey) to save a `.png`. The renderer
 - EffectComposer + RenderPass + UnrealBloomPass + FXAAShader
 - lil-gui for runtime parameters
 - Vanilla HTML/CSS UI overlay (ripple buttons + energy indicator)
+
