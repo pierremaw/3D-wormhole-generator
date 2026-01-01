@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ### Scene Graph
 
-Eight objects compose the wormhole. All are children of the root Scene and rendered each frame.
+Eight objects under the root Scene compose the wormhole, all rendered each frame.
 
     Scene
     ├── CosmicBackground      4,200 points, r ∈ [80, 130]
@@ -81,5 +81,6 @@ WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
 ## License
 
 MIT
+
 
 
