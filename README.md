@@ -6,11 +6,9 @@ https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ## Architecture
 
-- Scene graph: meshes and objects in the 3D scene
-- Render pipeline: post-processing chain
-- Shader: portal activation pulse
-
 ### Scene Graph
+
+Eight objects compose the wormhole. All are children of the root Scene and rendered each frame.
 
     Scene
     ├── CosmicBackground      4,200 points, r ∈ [80, 130]
@@ -24,6 +22,8 @@ https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ### Render Pipeline
 
+Three post-processing passes run after the scene renders. Bloom creates the glow; FXAA smooths edges.
+
     Scene → RenderPass → UnrealBloomPass → FXAAShader → Output
 
 | Pass | Parameters |
@@ -34,7 +34,7 @@ https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ### Shader
 
-Portal activation injects a spherical pulse via onBeforeCompile:
+Portal activation injects a custom fragment via onBeforeCompile. The pulse expands outward at 8 units/sec.
 
     float r = timeSincePortal * 8.0;
     float pulse = smoothstep(r - 1.5, r, dist) - smoothstep(r, r + 1.5, dist);
@@ -79,3 +79,4 @@ WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
 ## License
 
 MIT
+
