@@ -1,62 +1,81 @@
 # 3D Wormhole Generator
 
-A real-time, GPU-driven wormhole you can *poke*, *spin*, and *photograph*. It renders a portal core with shader-driven pulses, wraps it in vortex rings and dimensional streams, then finishes the frame with bloom + FXAA for that clean sci-fi glow. Hit **Space** to “fire” the portal, scramble the universe with **X**, and save crisp **.png** screenshots straight from the renderer.
-
-Live demo: https://codepen.io/pierremaw/pen/vENqzER
+Real-time WebGL wormhole visualisation. Single HTML file, Three.js r166, ES modules.
 
 https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
-## What it does
+## Architecture
 
-The scene is built in **three.js** with a lightweight post-processing stack and a shader pipeline designed for speed. The portal effect is driven by uniforms like `time`, `pulseTime`, and `dimensionShift`, so “activation” feels like a travelling wave rather than a simple on/off toggle. Everything is procedural: starfield, crystals, particle energy, and the tube-like streams that imply motion through something bigger than space.
+- Scene graph: meshes and objects in the 3D scene
+- Render pipeline: post-processing chain
+- Shader: portal activation pulse
 
-## Features
+### Scene Graph
 
-- **GPU shaders** for portal pulses, emissive surges, and space distortion
-- **Post-processing**: Unreal Bloom + FXAA via `EffectComposer`
-- **Orbit camera** with damping + autorotate (comfortable, gallery-style movement)
-- **Procedural set dressing**: stars, crystals, energy particles, dimensional tube streams
-- **Control panel UX** with ripple feedback, plus keyboard shortcuts
-- **One-click PNG screenshots** using `preserveDrawingBuffer`
+    Scene
+    ├── CosmicBackground      4,200 points, r ∈ [80, 130]
+    ├── PortalCore            Sphere, custom shader (fresnel + temporal noise)
+    ├── VortexRings[n]        Torus, n = 3 + complexity
+    ├── Crystals[m]           Octahedron, m = crystalCount, radial placement
+    ├── DimensionalStreams    CatmullRomCurve3 → TubeGeometry, 12π helix
+    ├── PortalFrame           Torus r=7
+    ├── EnergyParticles       1,500 points, additive blend
+    └── SpaceDistortion       Inverted sphere, fresnel transparency
+
+### Render Pipeline
+
+    Scene → RenderPass → UnrealBloomPass → FXAAShader → Output
+
+| Pass | Parameters |
+|------|------------|
+| Bloom | strength 1.2, radius 0.7, threshold 0.2 |
+| Tonemapping | ACES filmic, exposure 1.18 |
+| Output | sRGB colour space |
+
+### Shader
+
+Portal activation injects a spherical pulse via onBeforeCompile:
+
+    float r = timeSincePortal * 8.0;
+    float pulse = smoothstep(r - 1.5, r, dist) - smoothstep(r, r + 1.5, dist);
+
+Energy: 8/sec regen, 25 cost, 900ms cooldown.
 
 ## Controls
 
-Mouse navigates the orbit camera. Double-click toggles fullscreen.
+| Input | Action |
+|-------|--------|
+| Drag | Orbit camera |
+| Scroll | Zoom |
+| Double-click | Fullscreen |
+| Space | Activate portal (25 energy, 900ms cooldown) |
+| R | Reset camera to origin |
+| X | Randomise colour palette |
+| P | Toggle performance mode (disables bloom, pixel ratio 1) |
+| F | Fullscreen |
 
-Keyboard shortcuts:
-- **Space**: activate the wormhole pulse
-- **R**: reset camera
-- **X**: change dimensions (randomise colours + rebuild layout)
-- **P**: performance mode toggle
-- **F**: fullscreen toggle
+### GUI Panel (top-right)
 
-The **Wormhole Stability** indicator shows current energy and state (Stable → Fluctuating → Unstable → Collapsed) as energy drains and regenerates.
+- Complexity: 1–8 (affects ring count)
+- Crystals: 6–24
+- Bloom: on/off, strength, radius
+- Rotation speed
 
-## Runtime tuning
+### Other
 
-Most settings are adjustable live via **lil-gui** (toggle it open if it’s hidden). These are the main knobs:
+- Screenshot: button in control panel exports PNG
+- Reduced motion: disables auto-rotate, caps bloom at 0.6
 
-| Parameter            | Meaning                                   | Range   | Default   |
-|---------------------|--------------------------------------------|--------:|----------:|
-| Complexity          | Number of rings + streams                   | 1 to 8  | 4         |
-| Crystals            | Floating crystal count                      | 6 to 24 | 12        |
-| Wormhole Energy Hue | Accent colour used by portal pulse shaders  | colour  | `#e74c3c` |
-| Bloom On            | Toggle Unreal Bloom pass                    | boolean | true      |
-| Bloom Strength      | Bloom intensity                             | 0 to 3  | 1.2       |
-| Spin                | Global rotation speed                       | 0 to 1  | 0.3       |
+## Run
 
-## Performance notes
+    python -m http.server 8000
 
-Performance mode (**P**) reduces load by disabling bloom, lowering pixel ratio, and slowing autorotate. It’s the “keep it smooth” switch for integrated GPUs and laptops. The default renderer caps pixel ratio to `min(devicePixelRatio, 2)` to avoid accidentally melting the frame-time on high-DPI displays.
+ES modules require a server. The file protocol is blocked by CORS.
 
-## Screenshots
+## Browser Support
 
-Click the camera button (or wire your own hotkey) to save a `.png`. The renderer runs with `preserveDrawingBuffer: true` specifically so screenshots are clean and immediate.
+WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
 
-## Tech stack
+## License
 
-- three.js (WebGL renderer, materials, geometry, controls)
-- EffectComposer + RenderPass + UnrealBloomPass + FXAAShader
-- lil-gui for runtime parameters
-- Vanilla HTML/CSS UI overlay (ripple buttons + energy indicator)
-
+MIT
