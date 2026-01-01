@@ -43,6 +43,8 @@ Energy: 8/sec regen, 25 cost, 900ms cooldown.
 
 ## Controls
 
+### Keyboard & Mouse
+
 | Input | Action |
 |-------|--------|
 | Drag | Orbit camera |
@@ -79,4 +81,5 @@ WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
 ## License
 
 MIT
+
 
