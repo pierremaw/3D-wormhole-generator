@@ -2,7 +2,7 @@
 
 Real-time WebGL wormhole visualisation. Single HTML file, Three.js r166, ES modules.
 
-https://codepen.io/pierremaw/pen/vENqzER
+Interactable interface: https://codepen.io/pierremaw/pen/vENqzER
 
 https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
@@ -83,6 +83,7 @@ WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
 ## License
 
 MIT
+
 
 
 
