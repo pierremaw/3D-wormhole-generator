@@ -1,958 +1,1228 @@
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Wormhole Generator</title>
-    <style>
-      :root {
-        --ctp-base: #0c0e18;
-        --ctp-mantle: #141828;
-        --ctp-crust: #1a1e34;
-        --ctp-text: #e8ecf2;
-        --ctp-subtext0: #8a90a8;
-        --ctp-overlay0: #767e98;
-        --ctp-surface0: #282e48;
-        --ctp-accent: #e05aa0;
-        --ctp-blue: #4a90d9;
-        --ctp-green: #34d399;
-      }
-
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body {
-        overflow: hidden;
-        background: var(--ctp-base);
-        color: var(--ctp-text);
-        font-family: "Inter", "Segoe UI", -apple-system, system-ui, sans-serif;
-      }
-      #portal-container { position: fixed; inset: 0; z-index: 0; }
-
-      .lil-gui { z-index: 1100 !important; }
-      .lil-gui.root {
-        --background-color: rgba(20, 24, 40, 0.9);
-        --widget-color: rgba(40, 46, 72, 0.95);
-        --hover-color: rgba(74, 144, 217, 0.3);
-        --focus-color: rgba(74, 144, 217, 0.55);
-        --title-background-color: rgba(26, 30, 52, 0.95);
-        --text-color: #e8ecf2;
-      }
-
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 1;
-        background:
-          radial-gradient(80vw 80vh at 82% 12%, rgba(74, 144, 217, 0.2), transparent 62%),
-          radial-gradient(80vw 80vh at 15% 88%, rgba(224, 90, 160, 0.2), transparent 62%),
-          radial-gradient(100vw 100vh at 50% 50%, transparent, rgba(12, 14, 24, 0.7));
-        mix-blend-mode: screen;
-      }
-
-      #loading-overlay {
-        position: fixed;
-        inset: 0;
-        background: radial-gradient(130vw 130vh at 50% 48%, #1a1e34 0%, #0c0e18 45%, #09090b 100%);
-        display: grid;
-        place-items: center;
-        z-index: 9999;
-        transition: opacity 0.8s ease-out;
-      }
-      .loader {
-        width: 136px;
-        height: 136px;
-        border-radius: 50%;
-        background: conic-gradient(from 0turn, var(--ctp-accent), var(--ctp-blue), var(--ctp-green), var(--ctp-accent)) border-box;
-        -webkit-mask:
-          radial-gradient(farthest-side, #0000 55%, #000 56%) content-box,
-          linear-gradient(#000 0 0) padding-box;
-        -webkit-mask-composite: destination-out;
-                mask-composite: exclude;
-        padding: 10px;
-        animation: spin 1.05s linear infinite;
-        box-shadow:
-          0 0 30px rgba(74, 144, 217, 0.25),
-          inset 0 0 30px rgba(224, 90, 160, 0.22);
-      }
-      @keyframes spin { to { transform: rotate(1turn); } }
-
-      #meta-badges {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 120;
-        display: flex;
-        gap: 8px;
-        opacity: 0;
-        transition: opacity 0.45s ease;
-        pointer-events: none;
-      }
-      .meta-pill {
-        border: 1px solid rgba(40, 46, 72, 0.95);
-        background: rgba(20, 24, 40, 0.8);
-        color: var(--ctp-subtext0);
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 11px;
-        line-height: 1;
-        letter-spacing: 0.01em;
-      }
-
-      #info-panel {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 100;
-        opacity: 0;
-        color: var(--ctp-subtext0);
-        font-size: 12px;
-        line-height: 1.45;
-        pointer-events: none;
-        transition: opacity 0.45s ease;
-      }
-      #info-panel p + p { margin-top: 4px; }
-      #info-panel strong { color: var(--ctp-text); }
-      #info-panel code {
-        color: var(--ctp-text);
-        border: 1px solid rgba(40, 46, 72, 0.95);
-        background: rgba(26, 30, 52, 0.9);
-        border-radius: 6px;
-        padding: 1px 4px;
-      }
-
-      #control-panel {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 100;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        background: rgba(12, 14, 24, 0.78);
-        padding: 12px;
-        border-radius: 14px;
-        border: 1px solid rgba(40, 46, 72, 0.95);
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-        backdrop-filter: blur(14px);
-      }
-      .control-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-      .control-btn {
-        background: rgba(20, 24, 40, 0.88);
-        border: 1px solid rgba(118, 126, 152, 0.4);
-        color: var(--ctp-text);
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        cursor: pointer;
-        display: grid;
-        place-items: center;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-        position: relative;
-        overflow: hidden;
-      }
-      .control-btn:hover {
-        background: rgba(26, 30, 52, 0.95);
-        border-color: rgba(74, 144, 217, 0.8);
-        transform: translateY(-1px);
-        box-shadow: 0 0 16px rgba(74, 144, 217, 0.28);
-      }
-      .control-btn:active { transform: scale(0.96); }
-      .control-btn svg { width: 20px; height: 20px; z-index: 2; }
-
-      #portal-btn {
-        width: 100%;
-        height: 50px;
-        border-radius: 10px;
-        background: linear-gradient(120deg, rgba(224, 90, 160, 0.24), rgba(74, 144, 217, 0.24));
-        border-color: rgba(74, 144, 217, 0.55);
-      }
-      #portal-btn:hover {
-        background: linear-gradient(120deg, rgba(224, 90, 160, 0.36), rgba(74, 144, 217, 0.34));
-        box-shadow: 0 0 22px rgba(74, 144, 217, 0.33);
-      }
-
-      .btn-ripple {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.45);
-        transform: scale(0);
-        animation: ripple 0.55s linear;
-        pointer-events: none;
-      }
-      @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-
-      #portal-indicator {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        z-index: 100;
-        background: rgba(12, 14, 24, 0.8);
-        border: 1px solid rgba(40, 46, 72, 0.95);
-        border-radius: 12px;
-        padding: 12px;
-        backdrop-filter: blur(12px);
-        color: var(--ctp-text);
-        min-width: 220px;
-        opacity: 0;
-        transition: all 0.28s ease;
-      }
-      #portal-indicator.active {
-        opacity: 1;
-        border-color: rgba(74, 144, 217, 0.82);
-        box-shadow: 0 0 18px rgba(74, 144, 217, 0.24);
-      }
-      #portal-status {
-        margin-top: 4px;
-        color: var(--ctp-subtext0);
-        font-size: 12px;
-      }
-      .portal-bar {
-        width: 100%;
-        height: 8px;
-        background: rgba(118, 126, 152, 0.3);
-        border-radius: 999px;
-        margin-top: 10px;
-        overflow: hidden;
-      }
-      .portal-fill {
-        height: 100%;
-        background: linear-gradient(90deg, var(--ctp-accent), var(--ctp-blue));
-        border-radius: 999px;
-        transition: width 0.25s ease;
-        box-shadow: 0 0 12px rgba(74, 144, 217, 0.45);
-      }
-
-      @media (max-width: 900px) {
-        #meta-badges { display: none; }
-        #control-panel {
-          top: auto;
-          right: 20px;
-          left: 20px;
-          bottom: 20px;
-        }
-        #portal-indicator {
-          right: 20px;
-          min-width: 0;
-        }
-        #info-panel {
-          left: 20px;
-          right: 20px;
-          bottom: 92px;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .loader { animation-duration: 1.8s; }
-        .control-btn { transition: none; }
-      }
-    </style>
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.166.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.0/examples/jsm/"
-      }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Solar System Generator</title>
+  <style>
+    :root {
+      --ctp-base: #0c0e18;
+      --ctp-text: #e8ecf2;
+      --ctp-subtext0: #8a90a8;
+      --ctp-surface0: #282e48;
+      --ctp-accent: #e05aa0;
+      --ctp-blue: #4a90d9;
+      --ctp-green: #34d399;
     }
-    </script>
-  </head>
-  
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      overflow: hidden;
+      background: var(--ctp-base);
+      color: var(--ctp-text);
+      font-family: "Inter", "Segoe UI", -apple-system, system-ui, sans-serif;
+    }
+    #scene-container { position: fixed; inset: 0; z-index: 0; }
+    .lil-gui { z-index: 1100 !important; }
+    .lil-gui.root {
+      --background-color: rgba(20, 24, 40, 0.9);
+      --widget-color: rgba(40, 46, 72, 0.95);
+      --hover-color: rgba(74, 144, 217, 0.3);
+      --focus-color: rgba(74, 144, 217, 0.55);
+      --title-background-color: rgba(26, 30, 52, 0.95);
+      --text-color: #e8ecf2;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background:
+        radial-gradient(90vw 90vh at 85% 10%, rgba(74, 144, 217, 0.22), transparent 62%),
+        radial-gradient(90vw 90vh at 12% 90%, rgba(224, 90, 160, 0.2), transparent 62%),
+        radial-gradient(120vw 120vh at 50% 50%, transparent, rgba(12, 14, 24, 0.75));
+      mix-blend-mode: screen;
+    }
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(130vw 130vh at 50% 48%, #1a1e34 0%, #0c0e18 45%, #09090b 100%);
+      display: grid;
+      place-items: center;
+      z-index: 9999;
+      transition: opacity 0.8s ease-out;
+    }
+    .loader {
+      width: 136px;
+      height: 136px;
+      border-radius: 50%;
+      background: conic-gradient(from 0turn, var(--ctp-accent), var(--ctp-blue), var(--ctp-green), var(--ctp-accent)) border-box;
+      -webkit-mask:
+        radial-gradient(farthest-side, #0000 55%, #000 56%) content-box,
+        linear-gradient(#000 0 0) padding-box;
+      -webkit-mask-composite: destination-out;
+              mask-composite: exclude;
+      padding: 10px;
+      animation: spin 1.05s linear infinite;
+      box-shadow:
+        0 0 30px rgba(74, 144, 217, 0.25),
+        inset 0 0 30px rgba(224, 90, 160, 0.22);
+    }
+    @keyframes spin { to { transform: rotate(1turn); } }
+    #meta-badges {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 120;
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.45s ease;
+      pointer-events: none;
+    }
+    .meta-pill {
+      border: 1px solid rgba(40, 46, 72, 0.95);
+      background: rgba(20, 24, 40, 0.8);
+      color: var(--ctp-subtext0);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+    }
+    #info-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      opacity: 0;
+      color: var(--ctp-subtext0);
+      font-size: 12px;
+      line-height: 1.45;
+      pointer-events: none;
+      transition: opacity 0.45s ease;
+      max-width: min(40ch, calc(100vw - 40px));
+    }
+    #info-panel p + p { margin-top: 4px; }
+    #info-panel strong { color: var(--ctp-text); }
+    #info-panel code {
+      color: var(--ctp-text);
+      border: 1px solid rgba(40, 46, 72, 0.95);
+      background: rgba(26, 30, 52, 0.9);
+      border-radius: 6px;
+      padding: 1px 4px;
+    }
+    #selection-line {
+      color: var(--ctp-text);
+      font-weight: 600;
+    }
+    #control-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(12, 14, 24, 0.78);
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(40, 46, 72, 0.95);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(14px);
+      width: 252px;
+    }
+    .control-row { display: flex; gap: 10px; justify-content: center; }
+    .control-btn {
+      background: rgba(20, 24, 40, 0.88);
+      border: 1px solid rgba(118, 126, 152, 0.4);
+      color: var(--ctp-text);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .control-btn:hover {
+      background: rgba(26, 30, 52, 0.95);
+      border-color: rgba(74, 144, 217, 0.8);
+      transform: translateY(-1px);
+      box-shadow: 0 0 16px rgba(74, 144, 217, 0.28);
+    }
+    .control-btn:active { transform: scale(0.96); }
+    .control-btn svg { width: 20px; height: 20px; z-index: 2; }
+    .control-btn.active {
+      border-color: rgba(52, 211, 153, 0.9);
+      box-shadow: 0 0 18px rgba(52, 211, 153, 0.3);
+    }
+    #generate-btn {
+      width: 100%;
+      height: 50px;
+      border-radius: 10px;
+      background: linear-gradient(120deg, rgba(224, 90, 160, 0.26), rgba(74, 144, 217, 0.26));
+      border-color: rgba(74, 144, 217, 0.55);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    #generate-btn:hover {
+      background: linear-gradient(120deg, rgba(224, 90, 160, 0.38), rgba(74, 144, 217, 0.35));
+      box-shadow: 0 0 22px rgba(74, 144, 217, 0.33);
+    }
+    .btn-ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.45);
+      transform: scale(0);
+      animation: ripple 0.55s linear;
+      pointer-events: none;
+    }
+    @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+    #system-indicator {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(12, 14, 24, 0.8);
+      border: 1px solid rgba(40, 46, 72, 0.95);
+      border-radius: 12px;
+      padding: 12px;
+      backdrop-filter: blur(12px);
+      color: var(--ctp-text);
+      min-width: 250px;
+      opacity: 0;
+      transition: all 0.28s ease;
+    }
+    #system-indicator.active {
+      opacity: 1;
+      border-color: rgba(74, 144, 217, 0.82);
+      box-shadow: 0 0 18px rgba(74, 144, 217, 0.24);
+    }
+    .indicator-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ctp-subtext0);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .indicator-row strong { color: var(--ctp-text); font-weight: 600; }
+    .system-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(118, 126, 152, 0.3);
+      border-radius: 999px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .system-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--ctp-accent), var(--ctp-blue), var(--ctp-green));
+      border-radius: 999px;
+      transition: width 0.25s ease;
+      box-shadow: 0 0 12px rgba(74, 144, 217, 0.45);
+      width: 100%;
+    }
+    @media (max-width: 980px) {
+      #meta-badges { display: none; }
+      #control-panel { top: auto; right: 20px; left: 20px; bottom: 20px; width: auto; }
+      #system-indicator { right: 20px; min-width: 0; }
+      #info-panel { left: 20px; right: 20px; bottom: 130px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loader { animation-duration: 1.8s; }
+      .control-btn { transition: none; }
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.166.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
   <div id="loading-overlay" aria-hidden="true">
     <div class="loader" role="progressbar" aria-label="Loading scene"></div>
   </div>
-
-  <div id="portal-container" aria-live="off"></div>
-
+  <div id="scene-container" aria-live="off"></div>
   <div id="meta-badges" aria-hidden="true">
     <span class="meta-pill">Interactive Preview</span>
-    <span class="meta-pill">Theme Synced</span>
+    <span class="meta-pill">Procedural System</span>
   </div>
-
   <div id="info-panel">
-    <p><strong>Wormhole Generator</strong></p>
+    <p><strong>Solar System Generator</strong></p>
     <p>Drag to orbit, scroll to zoom, double-click for fullscreen.</p>
-    <p><code>Space</code> pulse | <code>R</code> reset | <code>X</code> cycle palette | <code>P</code> low-power</p>
+    <p><code>G</code> generate | <code>Space</code> pause | <code>O</code> orbits | <code>L</code> labels</p>
+    <p id="selection-line">Selected: Sun</p>
   </div>
-  
-  <div id="portal-indicator" aria-live="polite">
-    <div>Wormhole Stability</div>
-    <div id="portal-status">Stabilizing</div>
-    <div class="portal-bar">
-      <div class="portal-fill" id="portal-fill" style="width: 100%"></div>
-    </div>
+  <div id="system-indicator" aria-live="polite">
+    <div style="font-weight:600; margin-bottom:6px;">System Runtime</div>
+    <div class="indicator-row"><span>Seed</span><strong id="seed-value">-</strong></div>
+    <div class="indicator-row"><span>Planets</span><strong id="planet-value">-</strong></div>
+    <div class="indicator-row"><span>Target</span><strong id="target-value">Sun</strong></div>
+    <div class="indicator-row"><span>Status</span><strong id="status-value">Stable</strong></div>
+    <div class="system-bar"><div class="system-fill" id="system-fill"></div></div>
   </div>
-  
-  <div id="control-panel" role="toolbar" aria-label="Portal controls">
-    <button class="control-btn" id="portal-btn" title="Activate Wormhole" aria-label="Activate Wormhole">
-      <!-- target icon -->
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"></circle>
-        <path d="M12 1v6m0 6v6M21 12l-6-3 6-3M3 12l6 3-6 3M21 12l-6 3 6 3M3 12l6-3-6-3"/>
-      </svg>
-    </button>
+  <div id="control-panel" role="toolbar" aria-label="Solar system controls">
+    <button class="control-btn" id="generate-btn" title="Generate New System" aria-label="Generate New System">Generate System</button>
     <div class="control-row">
-      <button class="control-btn" id="reset-view" title="Reset Camera" aria-label="Reset Camera">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-          <path d="M21 3v5h-5"/>
-          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-          <path d="M3 21v-5h5"/>
+      <button class="control-btn" id="focus-btn" title="Focus Selected Body" aria-label="Focus Selected Body">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
         </svg>
       </button>
-  
-      <button class="control-btn" id="randomize" title="Change Dimensions" aria-label="Change Dimensions">
-        <!-- shuffle/orbit icon -->
+      <button class="control-btn" id="toggle-pause" title="Pause / Resume Simulation" aria-label="Pause or Resume Simulation">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M12 3a6.364 6.364 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-          <path d="m7 14 3-3 3 3"/>
-          <path d="M2.5 17a24.12 24.12 0 0 0 2 2 24.12 24.12 0 0 0 2-2"/>
-          <path d="M22 12c0 6-4 6-6 0V9a4.5 4.5 0 0 0-4.5-4.5c-1.5 0-2.5 1.5-2.5 1.5s1-1.5 2.5-1.5A4.5 4.5 0 0 1 18 9v3Z"/>
+          <path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>
         </svg>
       </button>
-  
       <button class="control-btn" id="toggle-perf" title="Toggle Performance Mode" aria-label="Toggle Performance Mode">
-        <!-- lightning -->
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6z"/>
+          <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6z"></path>
         </svg>
       </button>
-  
       <button class="control-btn" id="capture" title="Save Screenshot" aria-label="Save Screenshot">
-        <!-- camera -->
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
         </svg>
       </button>
     </div>
   </div>
-  
   <script type="module">
-  import * as THREE from 'three';
-  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-  import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-  
-  let portalEnergy = 100;
-  let portalCooldown = false;
-  
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+  import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+  import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+  import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+  import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
+  import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+
+  const SUN_VERTEX = `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    void main() {
+      vUv = uv;
+      vNormal = normalize(normalMatrix * normal);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+
+  const SUN_FRAGMENT = `
+    uniform float time;
+    uniform vec3 colorA;
+    uniform vec3 colorB;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    void main() {
+      vec2 uv = vUv * 4.0;
+      float n = noise(uv + vec2(time * 0.4, -time * 0.25)) * 0.65 + noise(uv * 2.2 - vec2(time * 0.3, time * 0.2)) * 0.35;
+      float rim = pow(1.0 - abs(vNormal.z), 2.8);
+      vec3 c = mix(colorA, colorB, n + rim * 0.25);
+      gl_FragColor = vec4(c, 1.0);
+    }
+  `;
+
+  const ATMOSPHERE_VERTEX = `
+    varying vec3 vNormal;
+    varying vec3 vWorldPos;
+    void main() {
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPos = worldPos.xyz;
+      vNormal = normalize(normalMatrix * normal);
+      gl_Position = projectionMatrix * viewMatrix * worldPos;
+    }
+  `;
+
+  const ATMOSPHERE_FRAGMENT = `
+    uniform vec3 glowColor;
+    varying vec3 vNormal;
+    varying vec3 vWorldPos;
+    void main() {
+      vec3 viewDir = normalize(cameraPosition - vWorldPos);
+      float fresnel = pow(1.0 - max(dot(viewDir, normalize(vNormal)), 0.0), 2.8);
+      gl_FragColor = vec4(glowColor, fresnel * 0.55);
+    }
+  `;
+
+  class SeededRandom {
+    constructor(seed) { this.seed = (seed >>> 0) || 1; }
+    next() {
+      let x = this.seed;
+      x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+      this.seed = x >>> 0;
+      return this.seed / 4294967296;
+    }
+    range(min, max) { return min + (max - min) * this.next(); }
+    int(min, max) { return Math.floor(this.range(min, max + 1)); }
+  }
+
   function createRipple(button, x, y) {
     const rect = button.getBoundingClientRect();
-    const ripple = document.createElement('span');
-    ripple.classList.add('btn-ripple');
-    ripple.style.left = `${(x ?? (rect.left + rect.width/2)) - rect.left}px`;
-    ripple.style.top  = `${(y ?? (rect.top + rect.height/2)) - rect.top}px`;
-    ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+    const ripple = document.createElement("span");
+    ripple.classList.add("btn-ripple");
+    ripple.style.left = `${(x ?? rect.left + rect.width * 0.5) - rect.left}px`;
+    ripple.style.top = `${(y ?? rect.top + rect.height * 0.5) - rect.top}px`;
+    ripple.style.width = ripple.style.height = `${Math.max(rect.width, rect.height)}px`;
     button.appendChild(ripple);
     setTimeout(() => ripple.remove(), 600);
   }
-  
-  class WormholeGenerator {
+
+  function hslHex(h, s, l) {
+    const c = new THREE.Color();
+    c.setHSL(h, s, l);
+    return `#${c.getHexString()}`;
+  }
+
+  function makeLabelSprite(text, color) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "rgba(12, 14, 24, 0.7)";
+    ctx.strokeStyle = "rgba(74, 144, 217, 0.65)";
+    ctx.lineWidth = 4;
+    ctx.fillRect(12, 12, 488, 104);
+    ctx.strokeRect(12, 12, 488, 104);
+    ctx.fillStyle = color;
+    ctx.font = "700 46px Inter, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 256, 68);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(2.2, 0.58, 1);
+    return { sprite, texture, material };
+  }
+
+  function makeGasTexture(baseColor, accentColor, rng) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, baseColor);
+    g.addColorStop(1, accentColor);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y += 3) {
+      const t = y / canvas.height;
+      const alpha = 0.05 + Math.sin(t * 40 + rng.range(-2, 2)) * 0.035 + rng.range(0, 0.03);
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0.01, alpha)})`;
+      const wobble = Math.sin(t * 24 + rng.range(0, Math.PI * 2)) * 18;
+      ctx.fillRect(wobble, y, canvas.width, 2);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    return tex;
+  }
+
+  function makeRockTexture(baseColor, rng) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < 3000; i++) {
+      const x = rng.range(0, canvas.width);
+      const y = rng.range(0, canvas.height);
+      const r = rng.range(0.5, 2.2);
+      const c = rng.int(35, 220);
+      const a = rng.range(0.05, 0.2);
+      ctx.fillStyle = `rgba(${c},${c},${c},${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    return tex;
+  }
+
+  function makeRingTexture() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    g.addColorStop(0.0, "rgba(0,0,0,0)");
+    g.addColorStop(0.2, "rgba(210,220,255,0.45)");
+    g.addColorStop(0.5, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.8, "rgba(210,220,255,0.45)");
+    g.addColorStop(1.0, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  class SolarSystemGenerator {
     constructor() {
       this.params = {
-        portalComplexity: 4,
-        crystalCount: 12,
-        primaryColor: '#e05aa0',
-        secondaryColor: '#34d399',
-        accentColor: '#4a90d9',
-        vortexColor: '#5ea0e5',
-        rotationSpeed: 0.3,
+        seed: (Date.now() % 1000000000) | 0,
+        planetCount: 8,
+        orbitSpacing: 2.55,
+        speed: 1.0,
+        orbitEccentricity: 0.12,
         bloomEnabled: true,
-        bloomStrength: 1.2,
-        bloomRadius: 0.7,
+        bloomStrength: 1.15,
+        bloomRadius: 0.62,
         bloomThreshold: 0.2,
-        portalIntensity: 1.0,
-        dimensionShift: 0
+        showOrbits: true,
+        showLabels: false,
+        paused: false
       };
-  
+
       this.lowPower = false;
-      this.meshes = [];
-      this.materials = [];
-      this.portalMaterials = [];
-      this.time = 0;
-  
+      this.focusLocked = false;
+
+      this.scene = null;
+      this.camera = null;
+      this.renderer = null;
+      this.composer = null;
+      this.controls = null;
+      this.clock = null;
+      this.fxaaPass = null;
+      this.bloomPass = null;
+
+      this.sun = null;
+      this.sunMaterial = null;
+      this.starfield = null;
+      this.nebula = [];
+      this.planets = [];
+      this.orbitLines = [];
+      this.labels = [];
+      this.asteroidBelt = null;
+      this.asteroidData = null;
+      this.asteroidDummy = new THREE.Object3D();
+
+      this.trackedGeometries = [];
+      this.trackedMaterials = [];
+      this.trackedTextures = [];
+      this.systemRoot = new THREE.Group();
+
+      this.pointerStart = null;
+      this.raycaster = new THREE.Raycaster();
+      this.pointer = new THREE.Vector2();
+      this.pickables = [];
+
+      this.selectedBody = null;
+      this.targetPoint = new THREE.Vector3();
+      this.tmpWorld = new THREE.Vector3();
+
+      this.fpsEMA = 60;
+      this.lastFrame = performance.now();
+
       this.init();
-      this.createPortalScene();
-      this.updatePortalUI();
+      this.buildSystem();
       this.setupGUI();
       this.setupEventListeners();
       this.animate();
-  
-      // Hide loader and show UI
+
       setTimeout(() => {
-        const overlay = document.getElementById('loading-overlay');
-        overlay.style.opacity = '0';
+        const overlay = document.getElementById("loading-overlay");
+        overlay.style.opacity = "0";
         setTimeout(() => {
-          overlay.style.display = 'none';
-          document.getElementById('info-panel').style.opacity = '1';
-          document.getElementById('portal-indicator').style.opacity = '1';
-          const badges = document.getElementById('meta-badges');
-          if (badges) badges.style.opacity = '1';
+          overlay.style.display = "none";
+          document.getElementById("info-panel").style.opacity = "1";
+          document.getElementById("system-indicator").style.opacity = "1";
+          document.getElementById("meta-badges").style.opacity = "1";
         }, 280);
-      }, 80);
-  
-      // Respect prefers-reduced-motion
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      }, 90);
+
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         this.controls.autoRotate = false;
-        this.params.bloomStrength = Math.min(this.params.bloomStrength, 0.6);
+        this.params.bloomStrength = Math.min(this.params.bloomStrength, 0.72);
         this.bloomPass.strength = this.params.bloomStrength;
       }
     }
-  
+
     init() {
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0x09090b);
-      this.scene.fog = new THREE.FogExp2(0x0c0e18, 0.0014);
-  
-      this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1200);
-      this.camera.position.set(0, 0, 15);
-      this.initialCameraPosition = this.camera.position.clone();
-  
-      this.scene.add(new THREE.AmbientLight(0x1a2644, 0.3));
-      const mainLight = new THREE.DirectionalLight(0xffffff, 0.65);
-      mainLight.position.set(10, 10, 5);
-      this.scene.add(mainLight);
-  
-      this.portalLights = [];
-      const lightColors = [this.params.primaryColor, this.params.secondaryColor, this.params.accentColor, this.params.vortexColor];
-      for (let i = 0; i < 6; i++) {
-        const light = new THREE.PointLight(new THREE.Color(lightColors[i % 4]), 0.8, 20);
-        this.scene.add(light);
-        this.portalLights.push(light);
-      }
-  
-      // preserveDrawingBuffer enables screenshots
-      this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+      this.scene.background = new THREE.Color(0x070912);
+      this.scene.fog = new THREE.FogExp2(0x090c18, 0.00092);
+      this.scene.add(this.systemRoot);
+
+      this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 2500);
+      this.camera.position.set(0, 14, 44);
+
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: true
+      });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.18;
-      document.getElementById('portal-container').appendChild(this.renderer.domElement);
-  
+      this.renderer.toneMappingExposure = 1.1;
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.getElementById("scene-container").appendChild(this.renderer.domElement);
+
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
       this.controls.enableDamping = true;
-      this.controls.dampingFactor = 0.08;
-      this.controls.autoRotate = true;
-         this.controls.autoRotateSpeed = 0.5;
+      this.controls.dampingFactor = 0.06;
+      this.controls.autoRotate = false;
       this.controls.minDistance = 8;
-      this.controls.maxDistance = 40;
-  
+      this.controls.maxDistance = 220;
+      this.controls.target.set(0, 0, 0);
+
+      this.scene.add(new THREE.AmbientLight(0x2a3556, 0.19));
+      this.scene.add(new THREE.HemisphereLight(0x7aa3ff, 0x12131d, 0.15));
+
       this.composer = new EffectComposer(this.renderer);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
-  
       this.bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        this.params.bloomStrength, this.params.bloomRadius, this.params.bloomThreshold
+        this.params.bloomStrength,
+        this.params.bloomRadius,
+        this.params.bloomThreshold
       );
       this.bloomPass.enabled = this.params.bloomEnabled;
       this.composer.addPass(this.bloomPass);
-  
+
       this.fxaaPass = new ShaderPass(FXAAShader);
       const pixelRatio = this.renderer.getPixelRatio();
-      this.fxaaPass.material.uniforms['resolution'].value.set(
-        1 / (window.innerWidth * pixelRatio), 1 / (window.innerHeight * pixelRatio)
+      this.fxaaPass.material.uniforms.resolution.value.set(
+        1 / (window.innerWidth * pixelRatio),
+        1 / (window.innerHeight * pixelRatio)
       );
       this.composer.addPass(this.fxaaPass);
-  
+
       this.clock = new THREE.Clock();
     }
-  
-    createPortalScene() {
-      this.meshes.forEach(m => this.scene.remove(m));
-      this.materials.forEach(mat => mat?.dispose());
-      this.meshes = [];
-      this.materials = [];
-      this.portalMaterials = [];
-  
-      this.createCosmicBackground();
-      this.createPortalCore();
-      this.createVortexRings();
-      this.createFloatingCrystals();
-      this.createDimensionalStreams();
-      this.createPortalFrame();
-      this.createEnergyParticles();
-      this.createSpaceDistortion();
+
+    trackGeometry(geo) {
+      this.trackedGeometries.push(geo);
+      return geo;
     }
-  
-    activatePortal() {
-      if (portalCooldown || portalEnergy < 25) return;
-      portalCooldown = true;
-      portalEnergy = Math.max(0, portalEnergy - 25);
-      this.updatePortalUI();
-  
-      this.portalMaterials.forEach(mat => {
-        if (mat.uniforms && mat.uniforms.pulseTime) {
-          mat.uniforms.pulseTime.value = this.time;
-        }
-      });
-      setTimeout(() => { portalCooldown = false; }, 900);
+
+    trackMaterial(mat) {
+      this.trackedMaterials.push(mat);
+      return mat;
     }
-  
-    addPortalShader(material) {
-      material.onBeforeCompile = (shader) => {
-        shader.uniforms.time = { value: 0 };
-        shader.uniforms.pulseTime = { value: -1000 };
-        shader.uniforms.portalSpeed = { value: 8.0 };
-        shader.uniforms.portalColor = { value: new THREE.Color(this.params.accentColor) };
-        shader.uniforms.dimensionShift = { value: 0 };
-  
-        shader.vertexShader = `varying vec3 vWorldPosition;\n` + shader.vertexShader;
-        shader.fragmentShader = `
-          uniform float time;
-          uniform float pulseTime;
-          uniform float portalSpeed;
-          uniform vec3 portalColor;
-          uniform float dimensionShift;
-          varying vec3 vWorldPosition;\n` + shader.fragmentShader;
-  
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          `
-          #include <begin_vertex>
-          vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
-          `
-        );
-  
-        shader.fragmentShader = shader.fragmentShader.replace(
-          '#include <emissivemap_fragment>',
-          `#include <emissivemap_fragment>
-          float timeSincePortal = time - pulseTime;
-          if(timeSincePortal > 0.0 && timeSincePortal < 3.0) {
-              float portalRadius = timeSincePortal * portalSpeed;
-              float currentRadius = length(vWorldPosition);
-              float portalWidth = 1.5;
-              float portalEffect = smoothstep(portalRadius - portalWidth, portalRadius, currentRadius) -
-                                   smoothstep(portalRadius, portalRadius + portalWidth, currentRadius);
-              vec3 dimensionalColor = mix(portalColor, vec3(1.0, 0.5, 1.0), sin(dimensionShift * 3.14159) * 0.5 + 0.5);
-              totalEmissiveRadiance += dimensionalColor * portalEffect * 4.0;
-          }`
-        );
-        this.portalMaterials.push(shader);
-      };
+
+    trackTexture(tex) {
+      this.trackedTextures.push(tex);
+      return tex;
     }
-  
-    createCosmicBackground() {
-      const count = 4200;
-      const geo = new THREE.BufferGeometry();
+
+    clearSystem() {
+      this.systemRoot.clear();
+      this.planets = [];
+      this.orbitLines = [];
+      this.labels = [];
+      this.pickables = [];
+      this.selectedBody = null;
+      this.asteroidBelt = null;
+      this.asteroidData = null;
+      this.sun = null;
+      this.sunMaterial = null;
+      this.nebula = [];
+      this.starfield = null;
+
+      this.trackedGeometries.forEach((g) => g.dispose());
+      this.trackedMaterials.forEach((m) => m.dispose());
+      this.trackedTextures.forEach((t) => t.dispose());
+      this.trackedGeometries = [];
+      this.trackedMaterials = [];
+      this.trackedTextures = [];
+    }
+
+    buildSystem() {
+      this.clearSystem();
+      const rng = new SeededRandom(this.params.seed);
+      this.createStarfield(rng);
+      this.createNebulaShells(rng);
+      this.createSun();
+      this.createPlanets(rng);
+      this.createAsteroidBelt(rng);
+      this.updateLabelsVisibility();
+      this.updateOrbitVisibility();
+      this.selectBody(this.sun, "Sun");
+      this.updateStatusUI();
+    }
+
+    createStarfield(rng) {
+      const count = this.lowPower ? 4800 : 8200;
+      const geo = this.trackGeometry(new THREE.BufferGeometry());
       const positions = new Float32Array(count * 3);
       const colors = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) {
         const i3 = i * 3;
-        const radius = 80 + Math.random() * 50;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
+        const radius = rng.range(180, 640);
+        const theta = rng.range(0, Math.PI * 2);
+        const phi = Math.acos(2 * rng.next() - 1);
         positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
         positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
         positions[i3 + 2] = radius * Math.cos(phi);
-  
-        const c = new THREE.Color().setHSL(Math.random(), 0.6 + Math.random()*0.3, 0.6 + Math.random()*0.3);
+
+        const c = new THREE.Color();
+        c.setHSL(rng.range(0.52, 0.72), rng.range(0.25, 0.95), rng.range(0.65, 0.95));
         c.toArray(colors, i3);
       }
-      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      const mat = new THREE.PointsMaterial({
-        size: 0.28, vertexColors: true, sizeAttenuation: true,
-        blending: THREE.AdditiveBlending, depthWrite: false, transparent: true
-      });
-      const stars = new THREE.Points(geo, mat);
-      this.scene.add(stars);
-      this.meshes.push(stars);
-      this.materials.push(mat);
-    }
-  
-    createPortalCore() {
-      const geo = new THREE.SphereGeometry(0.8, 32, 32);
-      const mat = new THREE.ShaderMaterial({
-        uniforms: {
-          time: { value: 0 },
-          pulseTime: { value: -1000 },
-          dimensionShift: { value: 0 },
-          color1: { value: new THREE.Color(this.params.primaryColor) },
-          color2: { value: new THREE.Color(this.params.secondaryColor) },
-          color3: { value: new THREE.Color(this.params.accentColor) }
-        },
-        vertexShader: `
-          uniform float time;
-          uniform float dimensionShift;
-          varying vec3 vPos;
-          varying vec3 vNorm;
-          void main() {
-            vPos = position;
-            vNorm = normal;
-            float warp = sin(position.x * 10.0 + time * 3.0) * 0.1;
-            float shift = sin(dimensionShift * 6.28318) * 0.3;
-            vec3 p = position * (1.0 + warp + shift);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform float time;
-          uniform float pulseTime;
-          uniform float dimensionShift;
-          uniform vec3 color1;
-          uniform vec3 color2;
-          uniform vec3 color3;
-          varying vec3 vPos;
-          varying vec3 vNorm;
-          void main() {
-            float noise = sin(vPos.x * 20.0 + time * 4.0) * cos(vPos.z * 15.0 + time * 3.0);
-            vec3 baseColor = mix(color1, color2, 0.5 + 0.5 * sin(time * 2.0 + dimensionShift));
-            vec3 finalColor = mix(baseColor, color3, noise * 0.3);
-            float fresnel = pow(1.0 - abs(dot(vNorm, normalize(cameraPosition - vPos))), 3.0);
-            finalColor = mix(finalColor, vec3(1.0), fresnel * 0.5);
-            float timeSincePortal = time - pulseTime;
-            if(timeSincePortal > 0.0 && timeSincePortal < 1.0) {
-                float burst = 1.0 - timeSincePortal;
-                finalColor += vec3(1.0) * burst * 3.0;
-            }
-            gl_FragColor = vec4(finalColor, 0.9);
-          }
-        `,
-        transparent: true
-      });
-      this.portalMaterials.push(mat);
-      const mesh = new THREE.Mesh(geo, mat);
-      this.scene.add(mesh);
-      this.meshes.push(mesh);
-    }
-  
-    createVortexRings() {
-      const rings = 3 + Math.floor(this.params.portalComplexity);
-      for (let ring = 0; ring < rings; ring++) {
-        const radius = 2 + ring * 0.85;
-        const geo = new THREE.TorusGeometry(radius, 0.055, 16, 64);
-        const mat = new THREE.MeshPhysicalMaterial({
-          color: new THREE.Color(this.getRingColor(ring)),
-          transparent: true, opacity: 0.7, metalness: 0.85, roughness: 0.22,
-          clearcoat: 0.85, clearcoatRoughness: 0.1,
-          emissive: new THREE.Color(this.getRingColor(ring)).multiplyScalar(0.22)
-        });
-        this.addPortalShader(mat);
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.rotation.x = Math.PI * 0.1 * ring;
-        mesh.rotation.z = Math.PI * 0.15 * ring;
-        this.scene.add(mesh);
-        this.meshes.push(mesh);
-      }
-    }
-  
-    createFloatingCrystals() {
-      const crystalCount = this.params.crystalCount;
-      for (let i = 0; i < crystalCount; i++) {
-        const geo = new THREE.OctahedronGeometry(0.3 + Math.random() * 0.4, 1);
-        const mat = new THREE.MeshPhysicalMaterial({
-          color: new THREE.Color(this.getCrystalColor(i)),
-          transparent: true, opacity: 0.82, metalness: 0.9, roughness: 0.1,
-          clearcoat: 1.0, clearcoatRoughness: 0.0,
-          emissive: new THREE.Color(this.getCrystalColor(i)).multiplyScalar(0.32)
-        });
-        this.addPortalShader(mat);
-        const mesh = new THREE.Mesh(geo, mat);
-        const angle = (i / Math.max(1, crystalCount)) * Math.PI * 2;
-        const radius = 6 + Math.random() * 4;
-        mesh.position.set(
-          Math.cos(angle) * radius,
-          (Math.random() - 0.5) * 8,
-          Math.sin(angle) * radius
-        );
-        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-        this.scene.add(mesh);
-        this.meshes.push(mesh);
-      }
-    }
-  
-    createDimensionalStreams() {
-      const streamCount = 4 + Math.floor(this.params.portalComplexity);
-      for (let i = 0; i < streamCount; i++) {
-        const points = [];
-        const segments = 120;
-        for (let j = 0; j <= segments; j++) {
-          const t = j / segments;
-          const angle = t * Math.PI * 12 + i * Math.PI * 0.25;
-          const radius = 3 + Math.sin(t * Math.PI * 6) * 1.5;
-          const height = (t - 0.5) * 15;
-          points.push(new THREE.Vector3(
-            Math.cos(angle) * radius,
-            height,
-            Math.sin(angle) * radius
-          ));
-        }
-        const curve = new THREE.CatmullRomCurve3(points);
-        const geo = new THREE.TubeGeometry(curve, segments, 0.02, 8, false);
-        const mat = new THREE.MeshPhysicalMaterial({
-          color: new THREE.Color(this.getStreamColor(i)),
-          transparent: true, opacity: 0.6, metalness: 1.0, roughness: 0.0,
-          emissive: new THREE.Color(this.getStreamColor(i)).multiplyScalar(0.4)
-        });
-        this.addPortalShader(mat);
-        const stream = new THREE.Mesh(geo, mat);
-        this.scene.add(stream);
-        this.meshes.push(stream);
-      }
-    }
-  
-    createPortalFrame() {
-      const frameGeo = new THREE.TorusGeometry(7, 0.2, 16, 64);
-      const frameMat = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(this.params.primaryColor),
-        transparent: true, opacity: 0.42, metalness: 1.0, roughness: 0.1,
-        clearcoat: 1.0, clearcoatRoughness: 0.0,
-        emissive: new THREE.Color(this.params.primaryColor).multiplyScalar(0.5)
-      });
-      this.addPortalShader(frameMat);
-      const frame = new THREE.Mesh(frameGeo, frameMat);
-      this.scene.add(frame);
-      this.meshes.push(frame);
-    }
-  
-    createEnergyParticles() {
-      const count = 1500;
-      const geo = new THREE.BufferGeometry();
-      const positions = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) {
-        const r = 2 + Math.random() * 8;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        positions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
-        positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-        positions[i*3+2] = r * Math.cos(phi);
-      }
-      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const mat = new THREE.PointsMaterial({
-        size: 0.08, color: this.params.vortexColor,
-        blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8
-      });
-      const particles = new THREE.Points(geo, mat);
-      this.scene.add(particles);
-      this.meshes.push(particles);
-      this.materials.push(mat);
-    }
-  
-    createSpaceDistortion() {
-      const geo = new THREE.SphereGeometry(12, 64, 64);
-      const mat = new THREE.ShaderMaterial({
-        uniforms: {
-          time: { value: 0 },
-          dimensionShift: { value: 0 },
-          color1: { value: new THREE.Color(this.params.primaryColor) },
-          color2: { value: new THREE.Color(this.params.vortexColor) }
-        },
-        vertexShader: `
-          uniform float time;
-          uniform float dimensionShift;
-          varying vec3 vNorm;
-          varying vec3 vPos;
-          void main() {
-            vNorm = normal;
-            vPos = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform float time;
-          uniform float dimensionShift;
-          uniform vec3 color1;
-          uniform vec3 color2;
-          varying vec3 vNorm;
-          varying vec3 vPos;
-          void main() {
-            vec3 viewDir = normalize(cameraPosition - vPos);
-            float fresnel = pow(1.0 - abs(dot(vNorm, viewDir)), 4.0);
-            float distortion = sin(vPos.x * 0.5 + time * 2.0) * cos(vPos.y * 0.7 + time * 1.5);
-            vec3 color = mix(color1, color2, distortion * 0.5 + 0.5 + dimensionShift * 0.3);
-            gl_FragColor = vec4(color, fresnel * 0.3);
-          }
-        `,
-        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-      });
-      const distortion = new THREE.Mesh(geo, mat);
-      this.scene.add(distortion);
-      this.meshes.push(distortion);
-      this.materials.push(mat);
-    }
-  
-    getRingColor(ring) {
-      const colors = [this.params.primaryColor, this.params.secondaryColor, this.params.accentColor, this.params.vortexColor];
-      return colors[ring % colors.length];
-    }
-    getCrystalColor(index) {
-      const colors = [this.params.accentColor, this.params.vortexColor, this.params.primaryColor, this.params.secondaryColor];
-      return colors[index % colors.length];
-    }
-    getStreamColor(index) {
-      const colors = [this.params.vortexColor, this.params.primaryColor, this.params.secondaryColor];
-      return colors[index % colors.length];
-    }
-  
-    updatePortalUI() {
-      const indicator = document.getElementById('portal-indicator');
-      const status = document.getElementById('portal-status');
-      const fill = document.getElementById('portal-fill');
-      if (!indicator || !status || !fill) return;
-  
-      fill.style.width = portalEnergy + '%';
-      const energyRatio = portalEnergy / 100;
-      const accentAlpha = 0.55 + energyRatio * 0.45;
-      const blueAlpha = 0.48 + energyRatio * 0.52;
-      const greenAlpha = 0.35 + energyRatio * 0.5;
-      fill.style.background = `linear-gradient(90deg, rgba(224,90,160,${accentAlpha}), rgba(74,144,217,${blueAlpha}), rgba(52,211,153,${greenAlpha}))`;
-  
-      if (portalEnergy > 80) { status.textContent = 'Stable'; indicator.className = 'active'; }
-      else if (portalEnergy > 50) { status.textContent = 'Fluctuating'; indicator.className = 'active'; }
-      else if (portalEnergy > 25) { status.textContent = 'Unstable'; indicator.className = 'active'; }
-      else { status.textContent = 'Collapsed'; indicator.className = ''; }
-    }
-  
-    setupEventListeners() {
-      const clickRipple = (e, fn) => { createRipple(e.currentTarget, e.clientX, e.clientY); fn(); };
-  
-      document.getElementById('portal-btn').addEventListener('click', (e) => clickRipple(e, () => this.activatePortal()));
-      document.getElementById('reset-view').addEventListener('click', (e) => clickRipple(e, () => {
-        this.controls.reset(); this.camera.position.copy(this.initialCameraPosition);
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      const mat = this.trackMaterial(new THREE.PointsMaterial({
+        size: this.lowPower ? 0.65 : 0.75,
+        vertexColors: true,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
       }));
-      document.getElementById('randomize').addEventListener('click', (e) => clickRipple(e, () => this.changeDimensions()));
-      document.getElementById('toggle-perf').addEventListener('click', (e) => clickRipple(e, () => this.togglePerformanceMode()));
-      document.getElementById('capture').addEventListener('click', (e) => clickRipple(e, () => this.takeScreenshot()));
-  
-      window.addEventListener('resize', () => this.onResize());
-      window.addEventListener('dblclick', () => {
-        if (!document.fullscreenElement) { document.documentElement.requestFullscreen?.(); }
-        else { document.exitFullscreen?.(); }
+      const stars = new THREE.Points(geo, mat);
+      this.starfield = stars;
+      this.systemRoot.add(stars);
+    }
+
+    createNebulaShells(rng) {
+      for (let i = 0; i < 2; i++) {
+        const radius = i === 0 ? 320 : 460;
+        const geo = this.trackGeometry(new THREE.SphereGeometry(radius, 56, 56));
+        const hueA = rng.range(0.55, 0.68);
+        const hueB = rng.range(0.8, 0.95);
+        const cA = new THREE.Color().setHSL(hueA, 0.62, 0.18);
+        const cB = new THREE.Color().setHSL(hueB, 0.5, 0.14);
+        const mat = this.trackMaterial(new THREE.MeshBasicMaterial({
+          side: THREE.BackSide,
+          transparent: true,
+          opacity: i === 0 ? 0.16 : 0.1,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          color: cA.lerp(cB, 0.45)
+        }));
+        const shell = new THREE.Mesh(geo, mat);
+        shell.rotation.set(rng.range(0, 1.5), rng.range(0, 2), rng.range(0, 1.2));
+        this.nebula.push(shell);
+        this.systemRoot.add(shell);
+      }
+    }
+
+    createSun() {
+      const sunGroup = new THREE.Group();
+
+      const sunGeo = this.trackGeometry(new THREE.SphereGeometry(3.4, 96, 96));
+      const sunMat = this.trackMaterial(new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          colorA: { value: new THREE.Color("#ff9f3f") },
+          colorB: { value: new THREE.Color("#ffd47a") }
+        },
+        vertexShader: SUN_VERTEX,
+        fragmentShader: SUN_FRAGMENT
+      }));
+      const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+      sunMesh.name = "Sun";
+      sunMesh.userData.type = "star";
+      sunMesh.castShadow = false;
+      sunMesh.receiveShadow = false;
+      sunGroup.add(sunMesh);
+      this.sun = sunMesh;
+      this.sunMaterial = sunMat;
+      this.pickables.push(sunMesh);
+
+      const coronaGeo = this.trackGeometry(new THREE.SphereGeometry(4.55, 64, 64));
+      const coronaMat = this.trackMaterial(new THREE.MeshBasicMaterial({
+        color: new THREE.Color("#ffcf66"),
+        transparent: true,
+        opacity: 0.14,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      const corona = new THREE.Mesh(coronaGeo, coronaMat);
+      sunGroup.add(corona);
+
+      const sunLight = new THREE.PointLight(0xffd79e, 4.8, 520, 2);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.set(2048, 2048);
+      sunLight.shadow.camera.near = 0.5;
+      sunLight.shadow.camera.far = 650;
+      sunGroup.add(sunLight);
+
+      const rimLight = new THREE.PointLight(0x77a8ff, 0.5, 290, 2);
+      rimLight.position.set(-24, 8, 36);
+      this.systemRoot.add(rimLight);
+      this.systemRoot.add(sunGroup);
+    }
+
+    createPlanets(rng) {
+      const names = ["Astra", "Lyra", "Helion", "Oris", "Vega", "Nereid", "Krios", "Talos", "Cydon", "Ione", "Rhea", "Phobos", "Mira", "Selene"];
+      const planetCount = this.params.planetCount;
+
+      for (let i = 0; i < planetCount; i++) {
+        const orbitalGroup = new THREE.Group();
+        const orbitRadius = 8.2 + i * this.params.orbitSpacing + rng.range(0.2, 1.4);
+        const eccentricity = Math.min(0.32, this.params.orbitEccentricity * rng.range(0.45, 1.25));
+        const inclination = rng.range(-0.18, 0.18);
+        const planetSize = rng.range(0.48, 2.35) * (i > planetCount - 3 ? 1.12 : 1.0);
+        const isGas = rng.next() > 0.5 || planetSize > 1.45;
+        const name = `${names[i % names.length]}-${rng.int(10, 99)}`;
+
+        orbitalGroup.rotation.x = inclination;
+        this.systemRoot.add(orbitalGroup);
+
+        const h = rng.range(0.03, 0.72);
+        const s = isGas ? rng.range(0.35, 0.72) : rng.range(0.2, 0.56);
+        const l = isGas ? rng.range(0.35, 0.62) : rng.range(0.3, 0.58);
+        const base = hslHex(h, s, l);
+        const accent = hslHex((h + rng.range(0.03, 0.14)) % 1, Math.min(0.9, s + 0.15), Math.max(0.2, l - 0.18));
+        const tex = this.trackTexture(isGas ? makeGasTexture(base, accent, rng) : makeRockTexture(base, rng));
+
+        const geo = this.trackGeometry(new THREE.SphereGeometry(planetSize, 72, 72));
+        const mat = this.trackMaterial(new THREE.MeshPhysicalMaterial({
+          map: tex,
+          metalness: isGas ? 0.06 : rng.range(0.08, 0.35),
+          roughness: isGas ? 0.78 : rng.range(0.45, 0.9),
+          clearcoat: isGas ? 0.12 : rng.range(0.15, 0.55),
+          clearcoatRoughness: 0.35,
+          emissive: new THREE.Color(accent).multiplyScalar(isGas ? 0.03 : 0.01)
+        }));
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(orbitRadius, 0, 0);
+        mesh.rotation.set(rng.range(0, Math.PI), rng.range(0, Math.PI), rng.range(-0.25, 0.25));
+        mesh.userData.type = "planet";
+        mesh.userData.name = name;
+        mesh.userData.radius = planetSize;
+        orbitalGroup.add(mesh);
+        this.pickables.push(mesh);
+
+        let atmosphere = null;
+        if (!isGas && planetSize > 0.75) {
+          const aGeo = this.trackGeometry(new THREE.SphereGeometry(planetSize * 1.06, 48, 48));
+          const aMat = this.trackMaterial(new THREE.ShaderMaterial({
+            uniforms: { glowColor: { value: new THREE.Color(accent) } },
+            vertexShader: ATMOSPHERE_VERTEX,
+            fragmentShader: ATMOSPHERE_FRAGMENT,
+            side: THREE.BackSide,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          }));
+          atmosphere = new THREE.Mesh(aGeo, aMat);
+          mesh.add(atmosphere);
+        }
+
+        let ring = null;
+        if (isGas && rng.next() > 0.54) {
+          const ringTex = this.trackTexture(makeRingTexture());
+          const ringGeo = this.trackGeometry(new THREE.RingGeometry(planetSize * 1.45, planetSize * rng.range(2.0, 2.8), 96, 12));
+          const ringMat = this.trackMaterial(new THREE.MeshBasicMaterial({
+            map: ringTex,
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: rng.range(0.45, 0.72),
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          }));
+          ring = new THREE.Mesh(ringGeo, ringMat);
+          ring.rotation.x = Math.PI * 0.5 + rng.range(-0.35, 0.35);
+          ring.rotation.z = rng.range(-0.5, 0.5);
+          mesh.add(ring);
+        }
+
+        const moonCount = planetSize > 1.2 ? rng.int(0, 3) : rng.int(0, 1);
+        const moons = [];
+        for (let m = 0; m < moonCount; m++) {
+          const moonPivot = new THREE.Group();
+          const moonDist = planetSize * (2.2 + m * 0.85 + rng.range(0.15, 0.6));
+          const moonRadius = planetSize * rng.range(0.12, 0.24);
+          const moonGeo = this.trackGeometry(new THREE.SphereGeometry(moonRadius, 28, 28));
+          const moonMat = this.trackMaterial(new THREE.MeshStandardMaterial({
+            color: new THREE.Color().setHSL(rng.range(0, 1), 0.08, rng.range(0.45, 0.75)),
+            roughness: 0.9,
+            metalness: 0.02
+          }));
+          const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+          moonMesh.castShadow = true;
+          moonMesh.receiveShadow = true;
+          moonMesh.position.set(moonDist, rng.range(-0.15, 0.15), 0);
+          moonPivot.rotation.x = rng.range(-0.3, 0.3);
+          moonPivot.add(moonMesh);
+          mesh.add(moonPivot);
+
+          moons.push({
+            pivot: moonPivot,
+            mesh: moonMesh,
+            distance: moonDist,
+            speed: rng.range(0.25, 0.95),
+            phase: rng.range(0, Math.PI * 2)
+          });
+        }
+
+        const orbitSegments = 160;
+        const orbitPts = [];
+        for (let p = 0; p <= orbitSegments; p++) {
+          const t = (p / orbitSegments) * Math.PI * 2;
+          const r = orbitRadius * (1 - eccentricity * eccentricity) / (1 + eccentricity * Math.cos(t));
+          orbitPts.push(new THREE.Vector3(Math.cos(t) * r, 0, Math.sin(t) * r));
+        }
+        const orbitGeo = this.trackGeometry(new THREE.BufferGeometry().setFromPoints(orbitPts));
+        const orbitMat = this.trackMaterial(new THREE.LineBasicMaterial({
+          color: 0x3d4a70,
+          transparent: true,
+          opacity: 0.55
+        }));
+        const orbitLine = new THREE.LineLoop(orbitGeo, orbitMat);
+        orbitLine.rotation.x = inclination;
+        this.systemRoot.add(orbitLine);
+        this.orbitLines.push(orbitLine);
+
+        const { sprite, texture: labelTex, material: labelMat } = makeLabelSprite(name, "#d8e6ff");
+        this.trackTexture(labelTex);
+        this.trackMaterial(labelMat);
+        sprite.position.set(orbitRadius, planetSize + 1.35, 0);
+        orbitalGroup.add(sprite);
+        this.labels.push(sprite);
+
+        this.planets.push({
+          name,
+          group: orbitalGroup,
+          mesh,
+          ring,
+          atmosphere,
+          orbitRadius,
+          eccentricity,
+          orbitSpeed: rng.range(0.1, 0.78) / Math.pow(1 + i * 0.45, 0.9),
+          rotationSpeed: rng.range(0.2, 1.6),
+          phase: rng.range(0, Math.PI * 2),
+          moons
+        });
+      }
+    }
+
+    createAsteroidBelt(rng) {
+      if (this.planets.length < 4) return;
+      const beltIndex = Math.floor(this.planets.length * 0.55);
+      const center = this.planets[beltIndex].orbitRadius + this.params.orbitSpacing * 0.4;
+      const spread = this.params.orbitSpacing * 1.1;
+      const count = this.lowPower ? 700 : 1800;
+
+      const geo = this.trackGeometry(new THREE.IcosahedronGeometry(0.07, 0));
+      const mat = this.trackMaterial(new THREE.MeshStandardMaterial({
+        color: 0x8f9bb8,
+        roughness: 0.86,
+        metalness: 0.05
+      }));
+      const mesh = new THREE.InstancedMesh(geo, mat, count);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+      const data = new Float32Array(count * 5);
+      for (let i = 0; i < count; i++) {
+        const base = i * 5;
+        data[base] = center + rng.range(-spread, spread);
+        data[base + 1] = rng.range(0, Math.PI * 2);
+        data[base + 2] = rng.range(0.06, 0.23);
+        data[base + 3] = rng.range(-0.6, 0.6);
+        data[base + 4] = rng.range(0.6, 1.9);
+      }
+
+      const dummy = this.asteroidDummy;
+      for (let i = 0; i < count; i++) {
+        const base = i * 5;
+        const r = data[base];
+        const a = data[base + 1];
+        const y = data[base + 3];
+        const s = data[base + 4];
+        dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+        dummy.rotation.set(a * 1.3, a * 0.7, a * 0.5);
+        dummy.scale.setScalar(s);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      this.systemRoot.add(mesh);
+
+      this.asteroidBelt = mesh;
+      this.asteroidData = data;
+    }
+
+    updateOrbitVisibility() {
+      this.orbitLines.forEach((line) => { line.visible = this.params.showOrbits; });
+    }
+
+    updateLabelsVisibility() {
+      this.labels.forEach((label) => { label.visible = this.params.showLabels; });
+    }
+
+    selectBody(object, fallback = "Sun") {
+      const name = object?.userData?.name || object?.name || fallback;
+      this.selectedBody = object || this.sun;
+      document.getElementById("selection-line").textContent = `Selected: ${name}`;
+      document.getElementById("target-value").textContent = name;
+      this.updateFocusButtonState();
+    }
+
+    updateFocusButtonState() {
+      const btn = document.getElementById("focus-btn");
+      if (!btn) return;
+      btn.classList.toggle("active", !!this.focusLocked);
+    }
+
+    toggleFocusSelected() {
+      this.focusLocked = !this.focusLocked;
+      if (!this.focusLocked) {
+        this.controls.target.lerp(new THREE.Vector3(0, 0, 0), 1);
+      }
+      this.updateFocusButtonState();
+    }
+
+    updateStatusUI() {
+      document.getElementById("seed-value").textContent = String(this.params.seed);
+      document.getElementById("planet-value").textContent = String(this.planets.length);
+      const indicator = document.getElementById("system-indicator");
+      indicator.classList.add("active");
+    }
+
+    togglePause() {
+      this.params.paused = !this.params.paused;
+      const btn = document.getElementById("toggle-pause");
+      btn.classList.toggle("active", this.params.paused);
+    }
+
+    togglePerformanceMode() {
+      this.lowPower = !this.lowPower;
+      const btn = document.getElementById("toggle-perf");
+      btn.classList.toggle("active", this.lowPower);
+      if (this.lowPower) {
+        this.bloomPass.enabled = false;
+        this.renderer.setPixelRatio(1);
+      } else {
+        this.bloomPass.enabled = this.params.bloomEnabled;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      }
+      this.onResize();
+      this.buildSystem();
+    }
+
+    regenerate() {
+      this.params.seed = ((Math.random() * 1e9) | 0) + 1;
+      this.buildSystem();
+    }
+
+    pickFromPointer(clientX, clientY) {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      const hits = this.raycaster.intersectObjects(this.pickables, false);
+      if (hits.length > 0) this.selectBody(hits[0].object);
+      else this.selectBody(this.sun, "Sun");
+    }
+
+    setupGUI() {
+      const gui = new GUI({ title: "Solar System" });
+      gui.add(this.params, "planetCount", 4, 14, 1).name("Planets").onFinishChange(() => this.buildSystem());
+      gui.add(this.params, "orbitSpacing", 1.8, 3.5, 0.05).name("Orbit Spread").onFinishChange(() => this.buildSystem());
+      gui.add(this.params, "orbitEccentricity", 0.02, 0.3, 0.01).name("Eccentricity").onFinishChange(() => this.buildSystem());
+      gui.add(this.params, "speed", 0.1, 2.2, 0.01).name("Speed");
+      gui.add(this.params, "showOrbits").name("Show Orbits").onChange(() => this.updateOrbitVisibility());
+      gui.add(this.params, "showLabels").name("Show Labels").onChange(() => this.updateLabelsVisibility());
+      gui.add(this.params, "bloomEnabled").name("Bloom On").onChange((v) => {
+        this.bloomPass.enabled = this.lowPower ? false : v;
       });
-  
-      // Keyboard shortcuts
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') { e.preventDefault(); this.activatePortal(); }
-        if (e.key.toLowerCase() === 'r') { this.controls.reset(); this.camera.position.copy(this.initialCameraPosition); }
-        if (e.key.toLowerCase() === 'x') { this.changeDimensions(); }
-        if (e.key.toLowerCase() === 'p') { this.togglePerformanceMode(); }
-        if (e.key.toLowerCase() === 'f') {
+      gui.add(this.params, "bloomStrength", 0, 2.5, 0.01).name("Bloom Strength").onChange((v) => {
+        this.bloomPass.strength = v;
+      });
+      gui.add({ regenerate: () => this.regenerate() }, "regenerate").name("Regenerate");
+      gui.close();
+    }
+
+    setupEventListeners() {
+      const clickRipple = (e, fn) => {
+        createRipple(e.currentTarget, e.clientX, e.clientY);
+        fn();
+      };
+
+      document.getElementById("generate-btn").addEventListener("click", (e) => clickRipple(e, () => this.regenerate()));
+      document.getElementById("focus-btn").addEventListener("click", (e) => clickRipple(e, () => this.toggleFocusSelected()));
+      document.getElementById("toggle-pause").addEventListener("click", (e) => clickRipple(e, () => this.togglePause()));
+      document.getElementById("toggle-perf").addEventListener("click", (e) => clickRipple(e, () => this.togglePerformanceMode()));
+      document.getElementById("capture").addEventListener("click", (e) => clickRipple(e, () => this.takeScreenshot()));
+
+      this.renderer.domElement.addEventListener("pointerdown", (e) => {
+        this.pointerStart = { x: e.clientX, y: e.clientY };
+      });
+      this.renderer.domElement.addEventListener("pointerup", (e) => {
+        if (!this.pointerStart) return;
+        const dx = e.clientX - this.pointerStart.x;
+        const dy = e.clientY - this.pointerStart.y;
+        this.pointerStart = null;
+        if (Math.hypot(dx, dy) < 5) this.pickFromPointer(e.clientX, e.clientY);
+      });
+
+      window.addEventListener("resize", () => this.onResize());
+      window.addEventListener("dblclick", () => {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+        else document.exitFullscreen?.();
+      });
+
+      window.addEventListener("keydown", (e) => {
+        const key = e.key.toLowerCase();
+        if (key === "g") this.regenerate();
+        if (key === " ") { e.preventDefault(); this.togglePause(); }
+        if (key === "o") {
+          this.params.showOrbits = !this.params.showOrbits;
+          this.updateOrbitVisibility();
+        }
+        if (key === "l") {
+          this.params.showLabels = !this.params.showLabels;
+          this.updateLabelsVisibility();
+        }
+        if (key === "p") this.togglePerformanceMode();
+        if (key === "r") {
+          this.controls.reset();
+          this.camera.position.set(0, 14, 44);
+          this.controls.target.set(0, 0, 0);
+          this.focusLocked = false;
+          this.updateFocusButtonState();
+        }
+        if (key === "f") {
           if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
           else document.exitFullscreen?.();
         }
       }, { passive: false });
     }
-  
-    changeDimensions() {
-      const colors = ['#e05aa0', '#4a90d9', '#34d399', '#5ea0e5', '#f3a0ca', '#60a5fa', '#14b8a6', '#a3e635', '#f59e0b', '#c084fc'];
-      this.params.primaryColor = colors[Math.floor(Math.random() * colors.length)];
-      this.params.secondaryColor = colors[Math.floor(Math.random() * colors.length)];
-      this.params.accentColor = colors[Math.floor(Math.random() * colors.length)];
-      this.params.vortexColor = colors[Math.floor(Math.random() * colors.length)];
-      this.params.dimensionShift = Math.random();
-      this.createPortalScene();
-    }
-  
-    setupGUI() {
-      const gui = new GUI();
-      gui.add(this.params, 'portalComplexity', 1, 8, 1).name('Complexity').onChange(() => this.createPortalScene());
-      gui.add(this.params, 'crystalCount', 6, 24, 1).name('Crystals').onChange(() => this.createPortalScene());
-      gui.addColor(this.params, 'accentColor').name('Wormhole Energy Hue').onChange(c => {
-        this.portalMaterials.forEach(m => { if (m.uniforms?.portalColor) m.uniforms.portalColor.value.set(c); });
-      });
-      gui.add(this.params, 'bloomEnabled').name('Bloom On').onChange(v => this.bloomPass.enabled = v);
-      gui.add(this.params, 'bloomStrength', 0, 3, 0.1).name('Bloom Strength').onChange(v => this.bloomPass.strength = v);
-      gui.add(this.params, 'rotationSpeed', 0, 1, 0.1).name('Spin');
-      gui.close();
-    }
-  
-    togglePerformanceMode() {
-      this.lowPower = !this.lowPower;
-      if (this.lowPower) {
-        this.bloomPass.enabled = false;
-        this.controls.autoRotateSpeed = 0.3;
-        this.renderer.setPixelRatio(1);
-      } else {
-        this.bloomPass.enabled = this.params.bloomEnabled;
-        this.controls.autoRotateSpeed = 0.5;
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      }
-      this.onResize();
-    }
-  
+
     takeScreenshot() {
-      // ensure the latest frame is drawn
       this.composer.render();
-      const dataURL = this.renderer.domElement.toDataURL('image/png');
-      const a = document.createElement('a');
+      const dataURL = this.renderer.domElement.toDataURL("image/png");
+      const a = document.createElement("a");
       a.href = dataURL;
-      a.download = `wormhole-${Date.now()}.png`;
+      a.download = `solar-system-${this.params.seed}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
     }
-  
+
     animate() {
       requestAnimationFrame(() => this.animate());
       const delta = this.clock.getDelta();
-      this.time = this.clock.getElapsedTime();
-  
-      if (portalEnergy < 100) {
-        portalEnergy = Math.min(100, portalEnergy + delta * 8);
-        this.updatePortalUI();
-      }
-  
-      this.portalMaterials.forEach(shader => {
-        if (shader.uniforms) {
-          if (shader.uniforms.time) shader.uniforms.time.value = this.time;
-          if (shader.uniforms.dimensionShift) shader.uniforms.dimensionShift.value = this.params.dimensionShift;
+      const time = this.clock.getElapsedTime();
+
+      const now = performance.now();
+      const dtMs = Math.max(1, now - this.lastFrame);
+      this.lastFrame = now;
+      const fps = 1000 / dtMs;
+      this.fpsEMA = this.fpsEMA * 0.92 + fps * 0.08;
+
+      const fillPct = Math.min(100, Math.max(8, (this.fpsEMA / 60) * 100));
+      const status = this.fpsEMA > 54 ? "Stable" : this.fpsEMA > 42 ? "Nominal" : "Stressed";
+      document.getElementById("status-value").textContent = status;
+      document.getElementById("system-fill").style.width = `${fillPct}%`;
+
+      if (!this.params.paused) {
+        if (this.sunMaterial?.uniforms?.time) this.sunMaterial.uniforms.time.value = time;
+
+        if (this.starfield) {
+          this.starfield.rotation.y += delta * 0.0028;
+          this.starfield.rotation.x += delta * 0.0006;
         }
-      });
-      this.materials.forEach(mat => {
-        if (mat.uniforms) {
-          if (mat.uniforms.time) mat.uniforms.time.value = this.time;
-          if (mat.uniforms.dimensionShift) mat.uniforms.dimensionShift.value = this.params.dimensionShift;
-        }
-      });
-  
-      this.portalLights.forEach((light, i) => {
-        const angle = this.time * 0.3 + (i / 6) * Math.PI * 2;
-        const radius = 10 + Math.sin(this.time * 0.5 + i) * 3;
-        light.position.x = Math.cos(angle) * radius;
-        light.position.z = Math.sin(angle) * radius;
-        light.position.y = Math.sin(this.time * 0.4 + i * 0.7) * 5;
-      });
-  
-      this.meshes.forEach((mesh, i) => {
-        if (!mesh.rotation) return;
-        const speed = this.params.rotationSpeed;
-        mesh.rotation.y += delta * speed * (i % 2 ? -1 : 1) * 0.3;
-        mesh.rotation.x += delta * speed * 0.1;
-  
-        if (mesh.material && mesh.material.type === 'PointsMaterial') {
-          const positions = mesh.geometry.attributes.position.array;
-          for (let j = 0; j < positions.length; j += 3) {
-            positions[j]   += Math.sin(this.time + j) * 0.001;
-            positions[j+1] += Math.cos(this.time + j) * 0.001;
-            positions[j+2] += Math.sin(this.time * 0.7 + j) * 0.001;
+        this.nebula.forEach((shell, i) => {
+          shell.rotation.y += delta * (i ? 0.0018 : -0.0012);
+          shell.rotation.z += delta * 0.0007;
+        });
+
+        const speed = this.params.speed;
+        this.planets.forEach((planet, i) => {
+          const angle = time * planet.orbitSpeed * speed + planet.phase;
+          const r = planet.orbitRadius * (1 - planet.eccentricity * planet.eccentricity) / (1 + planet.eccentricity * Math.cos(angle));
+          planet.mesh.position.x = Math.cos(angle) * r;
+          planet.mesh.position.z = Math.sin(angle) * r;
+          planet.mesh.rotation.y += delta * planet.rotationSpeed * speed * 0.42;
+          planet.mesh.rotation.x += delta * planet.rotationSpeed * speed * 0.06;
+          if (planet.ring) planet.ring.rotation.z += delta * 0.07 * (i % 2 ? -1 : 1);
+          if (planet.atmosphere) planet.atmosphere.rotation.y -= delta * 0.06;
+          planet.moons.forEach((moon, m) => {
+            const ma = time * moon.speed * speed + moon.phase + m;
+            moon.mesh.position.x = Math.cos(ma) * moon.distance;
+            moon.mesh.position.z = Math.sin(ma) * moon.distance;
+            moon.mesh.rotation.y += delta * 0.3;
+          });
+        });
+
+        if (this.asteroidBelt && this.asteroidData) {
+          const count = this.asteroidBelt.count;
+          const dummy = this.asteroidDummy;
+          const step = this.lowPower ? 2 : 1;
+          for (let i = 0; i < count; i += step) {
+            const base = i * 5;
+            const r = this.asteroidData[base];
+            const a = this.asteroidData[base + 1] + time * this.asteroidData[base + 2] * speed;
+            const y = this.asteroidData[base + 3];
+            const s = this.asteroidData[base + 4];
+            dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+            dummy.rotation.set(a * 1.2, a * 0.75, a * 0.38);
+            dummy.scale.setScalar(s);
+            dummy.updateMatrix();
+            this.asteroidBelt.setMatrixAt(i, dummy.matrix);
           }
-          mesh.geometry.attributes.position.needsUpdate = true;
+          this.asteroidBelt.instanceMatrix.needsUpdate = true;
         }
-      });
-  
+      }
+
+      if (this.focusLocked && this.selectedBody) {
+        this.selectedBody.getWorldPosition(this.tmpWorld);
+        this.targetPoint.lerp(this.tmpWorld, Math.min(1, delta * 4));
+        this.controls.target.copy(this.targetPoint);
+      }
+
       this.controls.update();
       this.composer.render();
     }
-  
+
     onResize() {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.composer.setSize(window.innerWidth, window.innerHeight);
       const pixelRatio = this.renderer.getPixelRatio();
-      this.fxaaPass.material.uniforms['resolution'].value.set(
-        1 / (window.innerWidth * pixelRatio), 1 / (window.innerHeight * pixelRatio)
+      this.fxaaPass.material.uniforms.resolution.value.set(
+        1 / (window.innerWidth * pixelRatio),
+        1 / (window.innerHeight * pixelRatio)
       );
     }
   }
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new WormholeGenerator());
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => new SolarSystemGenerator());
   } else {
-    new WormholeGenerator();
+    new SolarSystemGenerator();
   }
   </script>
+</body>
+</html>
