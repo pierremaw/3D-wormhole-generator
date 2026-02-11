@@ -3,7 +3,6 @@
 Real-time WebGL wormhole visualization in a single HTML file using Three.js r166 ES modules.
 
 Live interface: https://codepen.io/pierremaw/pen/vENqzER
-Preview: https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
 ## Highlights
 
