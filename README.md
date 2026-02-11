@@ -1,91 +1,120 @@
 # 3D Wormhole Generator
 
-Real-time WebGL wormhole visualisation. Single HTML file, Three.js r166, ES modules.
+Real-time WebGL wormhole visualization in a single HTML file using Three.js r166 ES modules.
 
 Live interface: https://codepen.io/pierremaw/pen/vENqzER
+Preview: https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
 
-https://github.com/user-attachments/assets/ab906f2f-e4c7-49d8-9d27-bd74ff89e2a1
+## Highlights
+
+- Single-file app (`Index.html`) with no build tooling
+- Custom shader core + distortion shell
+- Bloom + FXAA post-processing pipeline
+- Portal energy/cooldown system with HUD
+- Portfolio-aligned UI skin (rose/blue/green palette, glass panels, pill badges)
+
+## UI and Theme
+
+The interface now mirrors the portfolio wormhole styling:
+
+- Dark Catppuccin-inspired surface colors (`--ctp-*` variables)
+- Top-center status badges (`Interactive Preview`, `Theme Synced`)
+- Updated control panel and indicator styling
+- Energy bar gradient aligned to portfolio accent colors
+- Mobile layout adjustment that docks controls near the bottom
+
+Default scene colors were also shifted to the portfolio palette:
+
+- Primary: `#e05aa0`
+- Secondary: `#34d399`
+- Accent: `#4a90d9`
+- Vortex: `#5ea0e5`
 
 ## Architecture
 
 ### Scene Graph
 
-Eight objects under the root Scene compose the wormhole, all rendered each frame.
+The scene is rebuilt from these systems:
 
-    Scene
-    ├── CosmicBackground      4,200 points, r ∈ [80, 130]
-    ├── PortalCore            Sphere, custom shader (fresnel + temporal noise)
-    ├── VortexRings[n]        Torus, n = 3 + complexity
-    ├── Crystals[m]           Octahedron, m = crystalCount, radial placement
-    ├── DimensionalStreams    CatmullRomCurve3 → TubeGeometry, 12π helix
-    ├── PortalFrame           Torus r=7
-    ├── EnergyParticles       1,500 points, additive blend
-    └── SpaceDistortion       Inverted sphere, fresnel transparency
+- `CosmicBackground` (4200 points)
+- `PortalCore` (custom shader sphere)
+- `VortexRings[n]` (`n = 3 + portalComplexity`)
+- `Crystals[m]` (`m = crystalCount`)
+- `DimensionalStreams[k]` (`k = 4 + portalComplexity`)
+- `PortalFrame`
+- `EnergyParticles` (1500 points)
+- `SpaceDistortion` (custom shader sphere)
 
 ### Render Pipeline
 
-Three post-processing passes run after the scene renders. Bloom creates the glow; FXAA smooths edges.
+`Scene -> RenderPass -> UnrealBloomPass -> FXAA -> Output`
 
-    Scene → RenderPass → UnrealBloomPass → FXAAShader → Output
+Key renderer settings:
 
-| Pass | Parameters |
-|------|------------|
-| Bloom | strength 1.2, radius 0.7, threshold 0.2 |
-| Tonemapping | ACES filmic, exposure 1.18 |
-| Output | sRGB colour space |
+- `antialias: true`
+- `preserveDrawingBuffer: true` (for screenshot export)
+- `ACESFilmicToneMapping` with exposure `1.18`
+- `SRGBColorSpace`
 
-### Shader
+Bloom defaults:
 
-Portal activation injects a custom fragment via onBeforeCompile. The pulse expands outward at 8 units/sec.
+- Strength: `1.2`
+- Radius: `0.7`
+- Threshold: `0.2`
 
-    float r = timeSincePortal * 8.0;
-    float pulse = smoothstep(r - 1.5, r, dist) - smoothstep(r, r + 1.5, dist);
+## Shader and Portal System
 
-Energy: 8/sec regen, 25 cost, 900ms cooldown.
+Portal activation injects a pulse through `onBeforeCompile` materials.
+
+- Pulse speed: `8.0`
+- Pulse width: `1.5`
+- Core burst window: `1.0s`
+
+Energy model:
+
+- Regen: `8/sec`
+- Activation cost: `25`
+- Cooldown: `900ms`
 
 ## Controls
 
-### Keyboard & Mouse
+### Mouse and Keyboard
 
-| Input | Action |
-|-------|--------|
-| Drag | Orbit camera |
-| Scroll | Zoom |
-| Double-click | Fullscreen |
-| Space | Activate portal (25 energy, 900ms cooldown) |
-| R | Reset camera to origin |
-| X | Randomise colour palette |
-| P | Toggle performance mode (disables bloom, pixel ratio 1) |
-| F | Fullscreen |
+- Drag: orbit camera
+- Scroll: zoom
+- Double-click: fullscreen
+- `Space`: activate portal pulse
+- `R`: reset camera
+- `X`: randomize palette / dimension shift
+- `P`: toggle low-power mode
+- `F`: fullscreen toggle
 
-### GUI Panel (top-right)
+### GUI (top-right)
 
-- Complexity: 1–8 (affects ring count)
-- Crystals: 6–24
-- Bloom: on/off, strength, radius
-- Rotation speed
+- Complexity (`1-8`)
+- Crystals (`6-24`)
+- Wormhole Energy Hue
+- Bloom On
+- Bloom Strength
+- Spin
 
 ### Other
 
-- Screenshot: button in control panel exports PNG
-- Reduced motion: disables auto-rotate, caps bloom at 0.6
+- Screenshot button exports PNG
+- Reduced motion disables auto-rotate and clamps bloom strength to `0.6`
 
 ## Run
 
-    python -m http.server 8000
+```bash
+python -m http.server 8000
+```
 
-ES modules require a server. The file protocol is blocked by CORS.
+Then open `http://localhost:8000`.
 
 ## Browser Support
 
-WebGL 2 + ES modules: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+
+WebGL2 + ES modules capable browsers (modern Chrome, Firefox, Safari, Edge).
 
 ## License
 
 MIT
-
-
-
-
-
-

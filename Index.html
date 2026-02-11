@@ -3,116 +3,247 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Wormhole Generator</title>
     <style>
+      :root {
+        --ctp-base: #0c0e18;
+        --ctp-mantle: #141828;
+        --ctp-crust: #1a1e34;
+        --ctp-text: #e8ecf2;
+        --ctp-subtext0: #8a90a8;
+        --ctp-overlay0: #767e98;
+        --ctp-surface0: #282e48;
+        --ctp-accent: #e05aa0;
+        --ctp-blue: #4a90d9;
+        --ctp-green: #34d399;
+      }
+
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { overflow: hidden; background: #000; font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Arial', sans-serif; }
-      #portal-container { position: fixed; inset: 0; }
-      .dg.ac { z-index: 1000 !important; }
-  
-      /* Subtle starry vignette */
-      body::before{
-        content:"";
-        position:fixed; inset:0; pointer-events:none; z-index:1;
+      body {
+        overflow: hidden;
+        background: var(--ctp-base);
+        color: var(--ctp-text);
+        font-family: "Inter", "Segoe UI", -apple-system, system-ui, sans-serif;
+      }
+      #portal-container { position: fixed; inset: 0; z-index: 0; }
+
+      .lil-gui { z-index: 1100 !important; }
+      .lil-gui.root {
+        --background-color: rgba(20, 24, 40, 0.9);
+        --widget-color: rgba(40, 46, 72, 0.95);
+        --hover-color: rgba(74, 144, 217, 0.3);
+        --focus-color: rgba(74, 144, 217, 0.55);
+        --title-background-color: rgba(26, 30, 52, 0.95);
+        --text-color: #e8ecf2;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
         background:
-          radial-gradient(80vw 80vh at 80% 10%, rgba(52,152,219,0.15), transparent 60%),
-          radial-gradient(80vw 80vh at 10% 90%, rgba(155,89,182,0.15), transparent 60%),
-          radial-gradient(120vw 120vh at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,0.6));
+          radial-gradient(80vw 80vh at 82% 12%, rgba(74, 144, 217, 0.2), transparent 62%),
+          radial-gradient(80vw 80vh at 15% 88%, rgba(224, 90, 160, 0.2), transparent 62%),
+          radial-gradient(100vw 100vh at 50% 50%, transparent, rgba(12, 14, 24, 0.7));
         mix-blend-mode: screen;
       }
-  
-      /* Loading overlay with conic spinner */
+
       #loading-overlay {
-        position: fixed; inset: 0;
-        background: radial-gradient(120vw 120vh at 50% 50%, #0a0015, #000);
-        display: grid; place-items: center;
-        z-index: 9999; transition: opacity 0.8s ease-out;
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(130vw 130vh at 50% 48%, #1a1e34 0%, #0c0e18 45%, #09090b 100%);
+        display: grid;
+        place-items: center;
+        z-index: 9999;
+        transition: opacity 0.8s ease-out;
       }
       .loader {
-        width: 140px; height: 140px; border-radius: 50%;
-        background:
-          conic-gradient(from 0turn, #9b59b6, #3498db, #9b59b6) border-box;
+        width: 136px;
+        height: 136px;
+        border-radius: 50%;
+        background: conic-gradient(from 0turn, var(--ctp-accent), var(--ctp-blue), var(--ctp-green), var(--ctp-accent)) border-box;
         -webkit-mask:
           radial-gradient(farthest-side, #0000 55%, #000 56%) content-box,
           linear-gradient(#000 0 0) padding-box;
         -webkit-mask-composite: destination-out;
                 mask-composite: exclude;
         padding: 10px;
-        animation: spin 1.1s linear infinite;
-        box-shadow: 0 0 30px rgba(155, 89, 182, 0.35), inset 0 0 30px rgba(52, 152, 219, 0.25);
+        animation: spin 1.05s linear infinite;
+        box-shadow:
+          0 0 30px rgba(74, 144, 217, 0.25),
+          inset 0 0 30px rgba(224, 90, 160, 0.22);
       }
       @keyframes spin { to { transform: rotate(1turn); } }
-  
-      #info-panel {
-        position: fixed; bottom: 20px; left: 20px;
-        color: rgba(255, 255, 255, 0.85); font-size: 13px; line-height: 1.35;
-        pointer-events: none; text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-        z-index: 100; opacity: 0; transition: opacity 0.8s ease-in;
+
+      #meta-badges {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 120;
+        display: flex;
+        gap: 8px;
+        opacity: 0;
+        transition: opacity 0.45s ease;
+        pointer-events: none;
       }
-  
+      .meta-pill {
+        border: 1px solid rgba(40, 46, 72, 0.95);
+        background: rgba(20, 24, 40, 0.8);
+        color: var(--ctp-subtext0);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        line-height: 1;
+        letter-spacing: 0.01em;
+      }
+
+      #info-panel {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 100;
+        opacity: 0;
+        color: var(--ctp-subtext0);
+        font-size: 12px;
+        line-height: 1.45;
+        pointer-events: none;
+        transition: opacity 0.45s ease;
+      }
+      #info-panel p + p { margin-top: 4px; }
+      #info-panel strong { color: var(--ctp-text); }
+      #info-panel code {
+        color: var(--ctp-text);
+        border: 1px solid rgba(40, 46, 72, 0.95);
+        background: rgba(26, 30, 52, 0.9);
+        border-radius: 6px;
+        padding: 1px 4px;
+      }
+
       #control-panel {
-        position: fixed; top: 20px; right: 20px; z-index: 100;
-        display: flex; flex-direction: column; gap: 10px;
-        background: rgba(0, 0, 0, 0.6);
-        padding: 14px; border-radius: 16px;
-        border: 1px solid rgba(155, 89, 182, 0.3);
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: rgba(12, 14, 24, 0.78);
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(40, 46, 72, 0.95);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
         backdrop-filter: blur(14px);
       }
       .control-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
       .control-btn {
-        background: rgba(155, 89, 182, 0.18);
-        border: 1px solid rgba(155, 89, 182, 0.4);
-        color: white; width: 50px; height: 50px; border-radius: 25px;
-        cursor: pointer; display: grid; place-items: center;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-        position: relative; overflow: hidden;
+        background: rgba(20, 24, 40, 0.88);
+        border: 1px solid rgba(118, 126, 152, 0.4);
+        color: var(--ctp-text);
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        position: relative;
+        overflow: hidden;
       }
       .control-btn:hover {
-        background: rgba(155, 89, 182, 0.35);
-        border-color: rgba(255, 255, 255, 0.7);
-        transform: translateY(-1px) scale(1.05);
-        box-shadow: 0 0 18px rgba(155, 89, 182, 0.55);
+        background: rgba(26, 30, 52, 0.95);
+        border-color: rgba(74, 144, 217, 0.8);
+        transform: translateY(-1px);
+        box-shadow: 0 0 16px rgba(74, 144, 217, 0.28);
       }
-      .control-btn:active { transform: scale(0.95); }
-      .control-btn svg { width: 22px; height: 22px; z-index: 2; }
-  
+      .control-btn:active { transform: scale(0.96); }
+      .control-btn svg { width: 20px; height: 20px; z-index: 2; }
+
       #portal-btn {
-        width: 100%; height: 58px; border-radius: 12px;
-        background: linear-gradient(45deg, rgba(155, 89, 182, 0.35), rgba(52, 152, 219, 0.35));
-        border-color: rgba(155, 89, 182, 0.6);
+        width: 100%;
+        height: 50px;
+        border-radius: 10px;
+        background: linear-gradient(120deg, rgba(224, 90, 160, 0.24), rgba(74, 144, 217, 0.24));
+        border-color: rgba(74, 144, 217, 0.55);
       }
       #portal-btn:hover {
-        background: linear-gradient(45deg, rgba(155, 89, 182, 0.55), rgba(52, 152, 219, 0.55));
-        box-shadow: 0 0 24px rgba(155, 89, 182, 0.65);
+        background: linear-gradient(120deg, rgba(224, 90, 160, 0.36), rgba(74, 144, 217, 0.34));
+        box-shadow: 0 0 22px rgba(74, 144, 217, 0.33);
       }
-  
+
       .btn-ripple {
-        position: absolute; border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        transform: scale(0); animation: ripple 0.55s linear;
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.45);
+        transform: scale(0);
+        animation: ripple 0.55s linear;
         pointer-events: none;
       }
       @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-  
+
       #portal-indicator {
-        position: fixed; top: 20px; left: 20px; z-index: 100;
-        background: rgba(0, 0, 0, 0.8);
-        border: 2px solid rgba(155, 89, 182, 0.5);
-        border-radius: 12px; padding: 14px; backdrop-filter: blur(10px);
-        color: rgba(255, 255, 255, 0.92); min-width: 220px;
-        opacity: 0; transition: all 0.28s ease;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(12, 14, 24, 0.8);
+        border: 1px solid rgba(40, 46, 72, 0.95);
+        border-radius: 12px;
+        padding: 12px;
+        backdrop-filter: blur(12px);
+        color: var(--ctp-text);
+        min-width: 220px;
+        opacity: 0;
+        transition: all 0.28s ease;
       }
       #portal-indicator.active {
-        opacity: 1; border-color: rgba(52, 152, 219, 0.85);
-        box-shadow: 0 0 20px rgba(52, 152, 219, 0.28);
+        opacity: 1;
+        border-color: rgba(74, 144, 217, 0.82);
+        box-shadow: 0 0 18px rgba(74, 144, 217, 0.24);
+      }
+      #portal-status {
+        margin-top: 4px;
+        color: var(--ctp-subtext0);
+        font-size: 12px;
       }
       .portal-bar {
-        width: 100%; height: 8px; background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px; margin-top: 8px; overflow: hidden;
+        width: 100%;
+        height: 8px;
+        background: rgba(118, 126, 152, 0.3);
+        border-radius: 999px;
+        margin-top: 10px;
+        overflow: hidden;
       }
       .portal-fill {
         height: 100%;
-        background: linear-gradient(90deg, #9b59b6, #3498db);
-        border-radius: 4px; transition: width 0.25s ease;
-        box-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+        background: linear-gradient(90deg, var(--ctp-accent), var(--ctp-blue));
+        border-radius: 999px;
+        transition: width 0.25s ease;
+        box-shadow: 0 0 12px rgba(74, 144, 217, 0.45);
+      }
+
+      @media (max-width: 900px) {
+        #meta-badges { display: none; }
+        #control-panel {
+          top: auto;
+          right: 20px;
+          left: 20px;
+          bottom: 20px;
+        }
+        #portal-indicator {
+          right: 20px;
+          min-width: 0;
+        }
+        #info-panel {
+          left: 20px;
+          right: 20px;
+          bottom: 92px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .loader { animation-duration: 1.8s; }
+        .control-btn { transition: none; }
       }
     </style>
     <script type="importmap">
@@ -128,13 +259,18 @@
   <div id="loading-overlay" aria-hidden="true">
     <div class="loader" role="progressbar" aria-label="Loading scene"></div>
   </div>
-  
+
   <div id="portal-container" aria-live="off"></div>
-  
+
+  <div id="meta-badges" aria-hidden="true">
+    <span class="meta-pill">Interactive Preview</span>
+    <span class="meta-pill">Theme Synced</span>
+  </div>
+
   <div id="info-panel">
     <p><strong>Wormhole Generator</strong></p>
-    <p>Mouse: Navigate | Double-click: Fullscreen</p>
-    <p>Keys: <code>Space</code> activate • <code>R</code> reset • <code>X</code> change • <code>P</code> perf</p>
+    <p>Drag to orbit, scroll to zoom, double-click for fullscreen.</p>
+    <p><code>Space</code> pulse | <code>R</code> reset | <code>X</code> cycle palette | <code>P</code> low-power</p>
   </div>
   
   <div id="portal-indicator" aria-live="polite">
@@ -219,10 +355,10 @@
       this.params = {
         portalComplexity: 4,
         crystalCount: 12,
-        primaryColor: '#9b59b6',
-        secondaryColor: '#3498db',
-        accentColor: '#e74c3c',
-        vortexColor: '#2ecc71',
+        primaryColor: '#e05aa0',
+        secondaryColor: '#34d399',
+        accentColor: '#4a90d9',
+        vortexColor: '#5ea0e5',
         rotationSpeed: 0.3,
         bloomEnabled: true,
         bloomStrength: 1.2,
@@ -240,6 +376,7 @@
   
       this.init();
       this.createPortalScene();
+      this.updatePortalUI();
       this.setupGUI();
       this.setupEventListeners();
       this.animate();
@@ -252,6 +389,8 @@
           overlay.style.display = 'none';
           document.getElementById('info-panel').style.opacity = '1';
           document.getElementById('portal-indicator').style.opacity = '1';
+          const badges = document.getElementById('meta-badges');
+          if (badges) badges.style.opacity = '1';
         }, 280);
       }, 80);
   
@@ -265,14 +404,14 @@
   
     init() {
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0x070012);
-      this.scene.fog = new THREE.FogExp2(0x110022, 0.0012);
+      this.scene.background = new THREE.Color(0x09090b);
+      this.scene.fog = new THREE.FogExp2(0x0c0e18, 0.0014);
   
       this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1200);
       this.camera.position.set(0, 0, 15);
       this.initialCameraPosition = this.camera.position.clone();
   
-      this.scene.add(new THREE.AmbientLight(0x330066, 0.22));
+      this.scene.add(new THREE.AmbientLight(0x1a2644, 0.3));
       const mainLight = new THREE.DirectionalLight(0xffffff, 0.65);
       mainLight.position.set(10, 10, 5);
       this.scene.add(mainLight);
@@ -656,9 +795,11 @@
       if (!indicator || !status || !fill) return;
   
       fill.style.width = portalEnergy + '%';
-      // subtle hue shift with energy
-      const hue = 200 - (portalEnergy * 1.2);
-      fill.style.background = `linear-gradient(90deg, hsl(${Math.max(0,hue)},70%,60%), #3498db)`;
+      const energyRatio = portalEnergy / 100;
+      const accentAlpha = 0.55 + energyRatio * 0.45;
+      const blueAlpha = 0.48 + energyRatio * 0.52;
+      const greenAlpha = 0.35 + energyRatio * 0.5;
+      fill.style.background = `linear-gradient(90deg, rgba(224,90,160,${accentAlpha}), rgba(74,144,217,${blueAlpha}), rgba(52,211,153,${greenAlpha}))`;
   
       if (portalEnergy > 80) { status.textContent = 'Stable'; indicator.className = 'active'; }
       else if (portalEnergy > 50) { status.textContent = 'Fluctuating'; indicator.className = 'active'; }
@@ -697,7 +838,7 @@
     }
   
     changeDimensions() {
-      const colors = ['#9b59b6', '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#e67e22', '#1abc9c', '#34495e', '#8e44ad', '#16a085'];
+      const colors = ['#e05aa0', '#4a90d9', '#34d399', '#5ea0e5', '#f3a0ca', '#60a5fa', '#14b8a6', '#a3e635', '#f59e0b', '#c084fc'];
       this.params.primaryColor = colors[Math.floor(Math.random() * colors.length)];
       this.params.secondaryColor = colors[Math.floor(Math.random() * colors.length)];
       this.params.accentColor = colors[Math.floor(Math.random() * colors.length)];
@@ -815,4 +956,3 @@
     new WormholeGenerator();
   }
   </script>
-  
